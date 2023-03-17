@@ -1,0 +1,292 @@
+---
+title: "03_data_processing"
+author: "Levente Rónai"
+output: html_document
+---
+
+```{r, message = F, warning = F}
+
+options(scipen = 999)
+
+### loading packages
+
+library(psych)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(data.table)
+library(lubridate)
+library(git2r)
+library(naniar)
+library(hms)
+
+```
+
+# 1: import and join of datasets of self-reports and behavioural assessments -------------
+
+```{r}
+
+### import datasets of self-reports and behavioural assessments
+
+
+big_data <- read.csv("processed_data/big_data.csv")
+
+dat_cogtask <- read.csv("processed_data/dat_cogtask.csv")
+
+```
+
+
+```{r}
+### mutate created_esm for using timestamps
+
+big_data <-
+  big_data %>% 
+  select(hour_esm = hour, everything()) %>% 
+  mutate(time_esm = as.POSIXct(created_esm),
+         time_esm = as_hms(time_esm),
+         hour_esm = hour(time_esm),
+         minutes_esm = minute(time_esm))
+```
+
+```{r}
+dat_cogtask <- 
+  dat_cogtask %>%
+  select(hour_cog = hour, everything()) %>% 
+  rowwise() %>% 
+  mutate(minutes_cog = ifelse(!is.na(nback_minutes) | !is.na(gonogo_minutes),
+                              round(mean(c(nback_minutes, gonogo_minutes), na.rm = T), digits = 0),
+                              NA
+                              ))
+```
+
+```{r}
+
+### join the two datasets and keep ESM and cogtask responses occured during the same beep and hour (first ESM surveys and than cogtasks)
+
+big_data <- 
+  big_data %>% 
+  left_join(dat_cogtask, by = c("session_esm", "day", "beep"))
+
+```
+
+```{r}
+big_data <- 
+  big_data %>%
+  mutate(min_bug = as.numeric(!minutes_cog > minutes_esm),
+         hour_bug = as.numeric(!hour_cog >= hour_esm))
+```
+
+```{r}
+big_data %>% 
+  filter(hour_bug == T) %>%
+  select(id_esm, created_esm, hour_cog, minutes_cog, hour_esm, minutes_esm, day, beep, date_cogtask, date_esm)
+```
+
+
+
+```{r}
+
+### if esm and cogtask hours or minutes do not match (due bugs in formr.org), replace cogtask results with NA's (only 36 trials in sum)
+
+big_data <- 
+  big_data %>%
+  mutate(gonogo_dprime = ifelse(min_bug == 1 | hour_bug == 1,
+                                NA,
+                                gonogo_dprime),
+         gonogo_corr_rt_median = ifelse(min_bug == 1 | hour_bug == 1,
+                                NA,
+                                gonogo_corr_rt_median),
+         nback_dprime = ifelse(min_bug == 1 | hour_bug == 1,
+                                NA,
+                                nback_dprime),
+         nback_corr_rt_median = ifelse(min_bug == 1 | hour_bug == 1,
+                                NA,
+                                nback_corr_rt_median),
+         )
+```
+
+# 2: preparing pre-cleaned dataset, screening participants ------------------
+
+```{r}
+
+### selection of relevant variables and filter incomplete three-day blocks (marked with NA) and re-naming of main dataset
+
+dat_cleaned <-
+  big_data %>%
+  select(id_esm, session_esm, age, gender, edu, city, start_date, date_esm, date_cogtask,
+         day, beep, event_pleasantness, worried, sad:active,
+         contains(c("gonogo", "nback", "mzq_", "mss_", "cerq_")), -contains(c("minutes")),
+         three_day_block, contains(c("diary", "stressor"))) 
+
+```
+
+```{r}
+write.csv(dat_cleaned, "processed_data/dat_cleaned.csv", row.names = F)
+```
+
+```{r}
+
+dat_cleaned %>% select(id_esm) %>% summarise(n_distinct(id_esm))
+
+```
+
+```{r}
+
+### making gender variable to be considered as a factor  
+
+dat_cleaned  <-  
+  dat_cleaned %>%
+  mutate(gender = factor(gender, levels = c(1, 2, 3), labels = c("Female", "Male", "Other")))
+
+```
+
+# 3: centering metrics within- and between individuals ------------
+
+```{r}
+
+### recode pleasantness of the event
+
+dat_cleaned <- 
+  dat_cleaned %>% 
+  mutate(event_unpleasantness = 8 - event_pleasantness)
+  # select(-event_pleasantness)
+
+### within-person centering of NA and cogtasks
+
+dat_cleaned <- 
+  dat_cleaned %>% 
+  group_by(id_esm) %>%
+  mutate_at(vars(gonogo_dprime, nback_dprime,
+                 gonogo_corr_rt_median, nback_corr_rt_median,
+                 event_unpleasantness, event_pleasantness,
+                 sad, calm, cheerful, angry),
+            .funs = list(centered = ~ as.numeric(scale(., scale = F, center = T)))) %>% 
+  distinct()
+
+```
+
+```{r}
+
+dat_cleaned <-
+  dat_cleaned %>%
+  arrange(id_esm, day, beep) %>%
+  group_by(id_esm, day) %>%
+  mutate_at(vars(sad_centered,
+                 calm_centered,
+                 cheerful_centered,
+                 angry_centered,
+                 event_unpleasantness_centered,
+                 gonogo_dprime_centered,
+                 nback_dprime_centered,
+                 gonogo_corr_rt_median_centered,
+                 nback_corr_rt_median_centered),
+            .funs = list(lag = ~ lag(.))) %>%
+  ungroup() %>% 
+  distinct()
+
+```
+
+```{r}
+
+### calculating between-level means of NA, PA, event unpleasantness, cogtask variables
+
+
+dat_cleaned <-
+  dat_cleaned %>%
+  group_by(id_esm) %>%
+  mutate_at(vars(sad, 
+                 calm, 
+                 cheerful, 
+                 angry,
+                 event_unpleasantness,
+                 gonogo_dprime,
+                 nback_dprime,
+                 gonogo_corr_rt_median,
+                 nback_corr_rt_median,
+                 stressor_sum),
+            .funs = list(mean = ~ mean(., na.rm = T))) %>%
+  ungroup() %>% 
+  
+  mutate_at(vars(sad_mean, 
+                 calm_mean, 
+                 cheerful_mean, 
+                 angry_mean,
+                 event_unpleasantness_mean,
+                 gonogo_dprime_mean,
+                 nback_dprime_mean,
+                 gonogo_corr_rt_median_mean,
+                 nback_corr_rt_median_mean,
+                 stressor_sum_mean),
+           .funs = list(grand_centered = ~ as.numeric(scale(., scale = F, center = T))))
+
+
+```
+
+# 5: creation of final dataset for modeling
+
+```{r}
+
+# data for beep models - select model-relevant variables  
+
+model_dat <- 
+  dat_cleaned %>% 
+  
+  select(id_esm, edu, gender, age, city, 
+         start_date, day, beep, 
+         
+         nback_dprime, 
+         gonogo_dprime,
+         gonogo_dprime_centered,
+         nback_dprime_centered,
+         
+         event_pleasantness,
+         event_unpleasantness,
+         event_pleasantness_centered,
+         event_unpleasantness_centered,
+
+         sad, calm, cheerful, angry,
+         
+
+         contains(c("_mean_grand_centered")), cerq_self_blame, cerq_acceptance, cerq_rumination,
+         cerq_attention, cerq_plan, cerq_reappraisal = cerq_reapprasial,
+         cerq_new_perspective, cerq_catastrophize, cerq_blame_others,
+         
+         mss_neg, mss_pos, mss_dis, mzq_refuse_reflection,
+         mzq_emotional_awareness, mzq_psychic_equivalence,
+         mzq_regulate_affect, mzq_sum,
+
+         ) %>%
+  distinct()
+
+```
+
+```{r}
+
+model_dat %>% 
+  write.csv("processed_data/model_dat.csv", row.names = F)
+
+
+# create filtered datasets (on non missing cognitive tasks, respectively) for descriptive analyses
+
+# model_dat %>%
+#   filter_at(vars(event_unpleasantness_centered:PA_sum_lag), all_vars(!is.na(.))) %>%
+#   distinct() %>%
+#   write.csv("processed_data/model_dat_filtered.csv", row.names = F)
+
+
+model_dat %>%
+  filter_at(vars(sad, angry, cheerful, calm, 
+                 event_unpleasantness_centered,
+                 nback_dprime_centered), all_vars(!is.na(.))) %>%
+  distinct() %>% 
+  write.csv("processed_data/model_dat_filtered_nback.csv", row.names = F)
+
+model_dat %>%
+  filter_at(vars(sad, angry, cheerful, calm, 
+                 event_unpleasantness_centered,
+                 gonogo_dprime_centered), all_vars(!is.na(.))) %>%
+  distinct() %>% 
+  write.csv("processed_data/model_dat_filtered_gonogo.csv", row.names = F)
+
+```
+

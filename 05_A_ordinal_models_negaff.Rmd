@@ -1,0 +1,399 @@
+---
+title: "R Notebook"
+output: html_document
+author: "Levente Rónai, Bertalan Polner"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+# Setup
+
+## Load packages
+
+```{r}
+
+options(scipen = 999)
+
+# Import and tidy data
+library(tidyverse)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(lavaan)
+library(git2r)
+
+# Modelling
+# Ordinal regression
+library(ordinal)
+# Model visualisation, diagnostics and summary
+library(sjPlot)
+```
+
+```{r}
+# compare the installed versions of R packages - the original analyses were conducted with R (v4.2.1; 2022) in RStudio (v2022.07.1; 2022). For the cumulative link mixed models, the ordinal package was used (v2022.11-16; Christensen, 2022)
+sessionInfo()
+```
+
+## Load and prepare data
+
+```{r}
+model_dat <- read.csv("processed_data/model_dat.csv")
+```
+
+# Convert data on emotional states into ordinal factors
+
+```{r}
+model_ord_dat <-
+  model_dat %>% 
+  mutate(
+    across(c(angry, sad, cheerful, calm), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))
+  )
+```
+
+# Cumulative Logit Link Mixed Models
+
+[A tutorial](https://user2021.r-project.org/participation/technical_notes/t186/technote/) [A textbook/tutorial](https://rcompanion.org/handbook/G_01.html)
+
+[A paper by Hedeker 2015](https://link.springer.com/article/10.1007/s11121-014-0495-x)
+
+## Assumptions
+
+### Proportional Odds Assumption
+
+[Proportional Odds Assumption - youtube](https://www.youtube.com/watch?v=iPDwMrw2D30&t=2s)
+
+Hedeker 2015:
+
+> **Proportional Odds Assumption**
+>
+> Since the slopes β do not carry the c subscript, they do not vary across categories.
+> That is, the effect of each covariate in x is assumed to be the same across the C-1 cumulative logits.
+> For example, if Y has three categories, it is as if one ran two binary logistic regressions (with dichotomized outcomes 1 vs 2 and 3, and 1 and 2 vs 3) and assumed that the covariate effects were the same for these two analyses.
+> McCullagh (1980) calls this assumption the *proportional odds assumption*.
+
+### Testing the prop odds assumption by comparing the fit to a model that relaxes this assumption: the multinomial model
+
+The multinomial model does not rely on the prop odds assumption.
+Here, the outcome categories are not ordered: they are nominal.
+So for each contrast will have an intercept and a slope as well.
+The multinomial model is always more precise than the prop odds model, as it makes fewer assumptions.
+The cumulative link model has fewer parameters and hence it is more parsimonious.
+You can fit both multinomial and cumulative link to the same data and compare the predicted probabilities.
+If the probabilites are close that suggests that the ordinal model is doing okay - how close is close enough?
+
+[Testing the Proportional Odds Assumption](https://www.rdocumentation.org/packages/ordinal/versions/2019.12-10/topics/nominal_test) - does not work for clmm but see [Function to check proportional odds ratio assumption for clmm object #12](https://github.com/runehaubo/ordinal/issues/12)
+
+[AIC vs BIC \@stackexchange](https://stats.stackexchange.com/questions/577/is-there-any-reason-to-prefer-the-aic-or-bic-over-the-other)
+
+## Predicting sadness
+
+### Go/nogo
+
+```{r}
+
+# mod_clmm_sad_gonogo <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_sad_gonogo,"saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
+mod_clmm_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
+
+```
+
+#### Assumption check
+
+Fit a simplified version of the ordinal model with the clmm2 function
+
+We need to use the clmm2 because only this allows comparing the fit of an ordinal vs a multinomial model.
+A limitation is that clmm2 can include only a single random term.
+Another limitation is that we get convergence warnings, especially for the more complex multinomial models.
+If we use a very simple model that includes only the interactions we are interested in, we still see the convergence warnings, but the value of max\|gradient is very small and we can consider that model convergence is okay ([according to the author of the package](https://github.com/runehaubo/ordinal/issues/12)).
+
+For details see: <https://github.com/runehaubo/ordinal/issues/12>
+
+```{r}
+# mod_clmm2_sad_gonogo <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     sad ~ 1 + event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_sad_gonogo, "saved_models/ordinal_models/mod_clmm2_sad_gonogo.rds")
+
+mod_clmm2_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm2_sad_gonogo.rds")
+```
+
+Fit the same model with the clmm2 function, this time relaxing the prop odds assumption
+
+```{r, warning=FALSE}
+# mod_clmm2_sad_gonogo_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     sad ~ 1,
+#     nominal = ~ event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_sad_gonogo_nominal, "saved_models/ordinal_models/mod_clmm2_sad_gonogo_nominal.rds")
+
+mod_clmm2_sad_gonogo_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_sad_gonogo_nominal.rds")
+```
+
+
+If the nominal model does not have superior fit, we accepted the ordinal clmm model 
+
+```{r}
+anova(
+  mod_clmm2_sad_gonogo,
+  mod_clmm2_sad_gonogo_nominal
+)
+
+```
+
+```{r}
+
+AIC(
+  mod_clmm2_sad_gonogo,
+  mod_clmm2_sad_gonogo_nominal
+)
+
+```
+
+### N-back
+
+```{r}
+# mod_clmm_sad_nback <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~
+#       age +
+#       gender +
+#       beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered +
+#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_sad_nback, "saved_models/ordinal_models/mod_clmm_sad_nback.rds")
+
+mod_clmm_sad_nback <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback.rds")
+
+
+```
+
+#### Assumption check
+
+```{r}
+# mod_clmm2_sad_nback <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     sad ~ event_unpleasantness_centered * nback_dprime_centered,
+#     random = factor(id_esm ), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_sad_nback, "saved_models/ordinal_models/mod_clmm2_sad_nback.rds")
+mod_clmm2_sad_nback <- readRDS("saved_models/ordinal_models/mod_clmm2_sad_nback.rds")
+```
+
+```{r}
+
+# mod_clmm2_sad_nback_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     sad ~ 1,
+#     nominal = ~ event_unpleasantness_centered * nback_dprime_centered,
+#     random = factor(id_esm ), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_sad_nback_nominal, "saved_models/ordinal_models/mod_clmm2_sad_nback_nominal.rds")
+mod_clmm2_sad_nback_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_sad_nback_nominal.rds")
+```
+
+```{r}
+AIC(
+  mod_clmm2_sad_nback,
+  mod_clmm2_sad_nback_nominal
+)
+```
+
+```{r}
+anova(
+  mod_clmm2_sad_nback,
+  mod_clmm2_sad_nback_nominal
+)
+```
+## Predicting anger
+
+### Go/nogo
+
+```{r}
+# mod_clmm_angry_gonogo <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~
+#       age +
+#       gender +
+#       beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_angry_gonogo, "saved_models/ordinal_models/mod_clmm_angry_gonogo.rds")
+
+mod_clmm_angry_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo.rds")
+
+
+```
+
+#### Assumption check
+
+```{r}
+# mod_clmm2_angry_gonogo <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     angry ~ event_unpleasantness_centered * gonogo_dprime_centered, 
+#       random = factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_angry_gonogo, "saved_models/ordinal_models/mod_clmm2_angry_gonogo.rds")
+mod_clmm2_angry_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm2_angry_gonogo.rds")
+```
+
+```{r}
+# mod_clmm2_angry_gonogo_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     angry ~ 1,
+#     nominal = ~ event_unpleasantness_centered * gonogo_dprime_centered, 
+#       random = factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_angry_gonogo_nominal, "saved_models/ordinal_models/mod_clmm2_angry_gonogo_nominal.rds")
+mod_clmm2_angry_gonogo_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_angry_gonogo_nominal.rds")
+```
+
+```{r}
+AIC(
+  mod_clmm2_angry_gonogo,
+  mod_clmm2_angry_gonogo_nominal
+)
+```
+
+```{r}
+anova(
+  mod_clmm2_angry_gonogo,
+  mod_clmm2_angry_gonogo_nominal
+)
+
+```
+
+### N-back
+
+```{r}
+
+# mod_clmm_angry_nback <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~
+#       age +
+#       gender +
+#       beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered +
+#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_angry_nback, "saved_models/ordinal_models/mod_clmm_angry_nback.rds")
+mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback.rds")
+
+```
+
+#### Assumption check
+
+Adding age and sex because otherwise there is a severe convergence issue with a max\|gradient\~155.
+Adding these covariates makes the max\|gradient value acceptable.
+
+```{r}
+# mod_clmm2_angry_nback <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     angry ~ age + gender + event_unpleasantness_centered * nback_dprime_centered,
+#     random = factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_angry_nback, "saved_models/ordinal_models/mod_clmm2_angry_nback.rds")
+
+mod_clmm2_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm2_angry_nback.rds")
+
+```
+
+```{r}
+# mod_clmm2_angry_nback_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     angry ~ 1 + age + gender ,
+#     nominal = ~ event_unpleasantness_centered * nback_dprime_centered,
+#     random = factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_angry_nback_nominal, "saved_models/ordinal_models/mod_clmm2_angry_nback_nominal.rds")
+mod_clmm2_angry_nback_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_angry_nback_nominal.rds")
+```
+
+AIC shows virtually no difference, while Likelihood-ratio test prefers the model with the nominal effects.
+
+```{r}
+AIC(
+  mod_clmm2_angry_nback, 
+  mod_clmm2_angry_nback_nominal
+)
+```
+
+```{r}
+anova(
+  mod_clmm2_angry_nback, 
+  mod_clmm2_angry_nback_nominal
+)
+```
+
+## Summary
+
+```{r}
+
+mod_clmm_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
+mod_clmm_sad_nback <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback.rds")
+mod_clmm_angry_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo.rds")
+mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback.rds")
+
+```
+
+
+```{r}
+tab_model(
+  mod_clmm_sad_gonogo, mod_clmm_sad_nback,
+  mod_clmm_angry_gonogo, mod_clmm_angry_nback
+   #, file = "tables/ordinal_models_negaff_control.html"
+)
+```

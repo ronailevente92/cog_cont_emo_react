@@ -1,0 +1,1175 @@
+---
+title: "01_cleaning"
+author: "Flora Hann"
+output: html_document
+---
+
+# setup
+
+```{r, warning=F, message=F}
+
+options("scipen" = 100, "digits" = 4)
+
+```
+
+# loading packages
+
+```{r, include=F, warning=F, message=F}
+
+library(corrplot)
+library(readxl)
+library(xts)
+library(psych)
+library(qgraph)
+library(tidyverse)
+library(dplyr)
+library(purrr)
+library(lme4)
+library(lmerTest)
+library(lavaan)
+library(sjPlot)
+library(ggplot2)
+library(car)
+library(lubridate)
+library(knitr)
+library(git2r)
+library(filesstrings)
+library(naniar)
+library(sjmisc)
+      
+```
+
+# reading datasets
+
+```{r, warning=T, message=F}
+
+dat_esm     <- read_csv("raw_data/esm_cog_cont.csv")
+dat_consent <- read_csv("raw_data/information_consent_cog_cont.csv")
+dat_pre     <- read_csv2("raw_data/pre_cog_cont.csv")
+dat_diary   <- read_csv("raw_data/diary_cog_cont.csv")
+
+```
+
+# cleaning and transforming datasets
+
+## pre
+
+### preparing datasets for join, defining time variables
+
+```{r, warning=T, message=F}
+dat_pre <- 
+  dat_pre %>%
+    
+  # translate variables, correct typos and label non-unique variables
+  rename(
+    menstruation_pre = menstruacio_pre,
+    exercise         = excercise,
+    car              = posessions1,
+    computer         = posessions2,
+    smartphone       = posessions3,
+    living_sqm       = living,
+    living_own       = living2,
+    covid1           = covid
+  ) %>%  
+  
+  rename_at(vars(starts_with("mk")), funs(str_replace(., "mk", "mzq"))) %>% 
+  rename_at(vars(starts_with("covid")), funs(str_replace(., "covid", "covid_"))) %>% 
+  rename_at(vars(starts_with("cerq")), funs(str_replace(., "cerq", "cerq_"))) %>% 
+  rename_at(vars(starts_with("SCL_90_depr")), funs(str_replace(., "SCL_90_depr", "SCL_90_depr_pre"))) %>% 
+  rename_at(vars(starts_with("wb")), funs(str_replace(., "wb", "wb_pre"))) %>%  
+  
+  # exclude unfinished surveys and under 18
+  filter(!is.na(ended), age != "under_18") %>%
+  
+  # convert date to datetime format and age to numeric
+  mutate(date_pre = as.POSIXct(ended) %>% as.Date(),
+         age      = as.numeric(age)) %>%
+
+  # convert strings to datetime format
+  mutate(
+    created_pre = as.POSIXct(created),
+    modified_pre = as.POSIXct(modified),
+    ended_pre = as.POSIXct(ended) 
+  ) %>% 
+
+  # exclude pilot surveys
+  filter(date_pre >= "2021-04-07") %>% 
+    
+  # discard unnecessary variables
+  select(-expired, -created, -modified, -ended)
+```
+
+
+```{r, warning=T, message=F}
+```
+
+
+```{r, warning=T, message=F}
+# exclude duplicated pres
+  dat_pre <- dat_pre[!duplicated(dat_pre$session), ] # %>% filter(session == "e4OqyIB5f2PM7eWL5iokFmFxrDsD-eX5ChQMOG3igOIbnPSeSEedQ2AwEGnwkIfC") %>% select(session, created_pre, ended_pre, everything()) %>% view()
+
+  
+  # write dat_pre into .csv file for descriptive analyses
+  write_csv(dat_pre, "raw_data/dat_pre_cleaned.csv") 
+  
+```
+
+### filtering responses that are too fast (under 9 mins)
+
+```{r, warning=T, message=F}
+
+dat_pre <-
+  dat_pre %>% 
+  select(session, date_pre, everything()) %>% 
+  mutate(
+    resp_time_pre        = difftime(ended_pre, created_pre, units = "mins") %>% as.numeric(),
+    relative_speed_index = median(resp_time_pre, na.rm = T)/resp_time_pre) %>%
+  filter(relative_speed_index <= 2)
+  # relative speed index reference Leiner 2019 Surv Res Met: https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjo8Ym8o8_0AhWCDewKHepPCvoQFnoECAIQAQ&url=https%3A%2F%2Fojs.ub.uni-konstanz.de%2Fsrm%2Farticle%2Fview%2F7403%2F6815&usg=AOvVaw1pXZELMTRJiZGhuJk825Tw
+
+
+dat_pre %>% summarise(median(resp_time_pre))
+
+dat_pre <- dat_pre %>% 
+  select(-resp_time_pre, -relative_speed_index)
+
+```
+
+## esm
+
+### preparing datasets for join, defining time variables
+
+```{r, warning=T, message=F}
+
+dat_esm <- 
+  dat_esm %>%
+  
+  # translate variables and correct typos
+  rename(
+    cheerful            = cheerfull,
+    homeo_hungry        = homeo_ehes,
+    homeo_craving       = homeo_vagy,
+    homeo_howmuch       = homeo_mennyittudna,
+    homeo_full          = homeo_telitettseg,
+    alcohol             = alcohol1,
+    smoke               = smoke1,
+    coffee              = coffee1,
+    ple_control         = ple_iranyitas,
+    ple_strange         = ple_furcsa,
+    ple_thoughts        = ple_gondolat,
+    ple_suspicion       = ple_gyanakvas,
+    ple_treatment       = ple_banasmod,
+    ple_perception      = ple_latashallas,
+    ple_thougtscontrol  = ple_gondolatiranyitas,
+    ple_familiarstrange = ple_ismerosisfura
+  ) %>% 
+    
+  rename_at(vars(starts_with("alvas")), funs(str_replace(., "alvas", "sleep"))) %>%
+  rename_at(vars(starts_with("eating")), funs(str_replace(., "eating", "eating_"))) %>%
+  
+  # keep only modified ESM surveys
+  filter(!is.na(modified)) %>% 
+  
+  # discard smoke variable
+  select(-smoke) %>% 
+  
+  # keep ESM surveys only where all items (excl. sleep) are answered
+  filter_at(vars(sad:ple_familiarstrange), all_vars(!is.na(.))) %>% 
+  
+  # replace values with NA
+  mutate(
+    alcohol=
+      ifelse(
+        alcohol >= 58,
+        NA,
+        alcohol
+      ),
+      
+     coffee =
+      ifelse(
+        coffee >= 4,
+        NA,
+        coffee
+      ),
+    
+     sleep_1 =
+      ifelse(
+        sleep_1 > 24 | sleep_1 == 0,
+        NA,
+        sleep_1
+      )
+    ) %>%
+  
+  # convert time to datetime
+  mutate(time_created_esm = as.POSIXct(created)) %>%
+  select(-expired, -cogtasks_decide, -time_created_esm) %>% 
+  mutate(
+    created_esm  = as.POSIXct(created),
+    modified_esm = as.POSIXct(modified),
+    ended_esm    = as.POSIXct(ended)) %>% 
+  
+  select(-modified, -ended, -created, -time, -time_since, -time_starting_point, -time_since_starting_point) %>% 
+  
+  select(session_esm = session, modified_esm, ended_esm, created_esm, everything())
+
+```
+
+
+```{r message=FALSE, warning=TRUE}
+
+# identify cases where ESM was completed but ended=NA (due to cogtest error)
+esm_interrupted <- 
+  dat_esm %>% 
+  filter_at(vars(sad:ple_familiarstrange), all_vars(!is.na(.))) %>% 
+  filter(is.na(ended_esm))
+  # no cases identified (esm_interrupted contains 0 observations)
+
+# write dat_esm into .csv file for descriptive analyses
+
+  write_csv(dat_esm, "raw_data/dat_esm_cleaned_unfiltered.csv") 
+```
+
+### filtering responses that are too fast (under 30 secs) or too slow (over 10 mins)
+
+```{r message=FALSE, warning=TRUE}
+
+dat_esm <- 
+  dat_esm %>%
+    mutate(resp_time_esm = difftime(ended_esm, created_esm, units = "secs")) %>%
+    filter(resp_time_esm > 29 & resp_time_esm < 601) %>% 
+    select(-resp_time_esm)
+
+```
+
+## joining esm and pre to define days and weeks by start date
+
+```{r, warning=T, message=F}
+
+esm_pre <-
+  dat_esm %>%
+  right_join(dat_pre, by = c("session_esm" = "session")) %>% 
+
+  # convert time to datetime
+  mutate(date_esm = as.Date(created_esm),
+         day = as.numeric(date_esm - date_pre)) %>%  
+  
+  select(session_esm, start_date = date_pre, day, everything()) %>%
+  arrange(session_esm, day, created_esm) %>%
+  
+  # filter responses after 28 days
+  filter(day < 29)
+
+```
+
+## diary
+
+```{r, warning=T, message=F}
+
+dat_diary <- 
+  dat_diary %>%
+  
+  # translate variables and label non-unique variables
+  rename(
+    menstruation_diary = menstruacio_diary
+  ) %>% 
+  
+  rename_at(vars(starts_with("SCL_90_depr")), funs(str_replace(., "SCL_90_depr", "SCL_90_depr_diary"))) %>% 
+  rename_at(vars(starts_with("wb")), funs(str_replace(., "wb", "wb_diary_"))) %>%
+  rename_at(vars(starts_with("stresszorok")), funs(str_replace(., "stresszorok", "stressor_"))) %>%
+  
+  filter(!is.na(modified)
+  ) %>%
+  mutate(
+    created_diary  = as.POSIXct(created),
+    modified_diary = as.POSIXct(modified),
+    ended_diary    = as.POSIXct(ended),
+    date_diary     = as.Date(created_diary)
+  ) %>% 
+  
+  select(-modified, -ended, -expired, -created, -wants_to_continue) %>% 
+  select(ends_with("_diary"), session_diary = session, created_diary, everything())
+
+```
+
+## consent
+
+```{r, warning=F, message=F}
+
+dat_consent <- 
+  dat_consent %>% 
+  select(session, consent, consent_final)
+
+```
+
+## calculating beeps
+
+```{r, warning=T, message=F}
+
+esm_pre <- 
+  esm_pre %>% 
+  mutate(
+    
+    # initialize column with double (aka real number) NA values
+    beep         = NA_real_, 
+    
+    # convert time to minutes passed since midnight
+    hour         = hour(created_esm),
+    minutes      = minute(created_esm),
+    esm_mins     = (hour * 60 + minutes)
+  ) %>% 
+  
+  # calculate beep based on timestamp of ESM survey sent to participant
+  mutate(
+    beep =     
+      case_when(
+        between(esm_mins, 420, 569)   ~ 1,    # beep around 08:00
+        between(esm_mins, 570, 689)   ~ 2,    # beep around 10:00
+        between(esm_mins, 690, 809)   ~ 3,    # beep around 12:00
+        between(esm_mins, 810, 929)   ~ 4,    # beep around 14:00
+        between(esm_mins, 930, 1049)  ~ 5,    # beep around 16:00
+        between(esm_mins, 1050, 1169) ~ 6,    # beep around 18:00
+        between(esm_mins, 1170, 1289) ~ 7,    # beep around 20:00
+        between(esm_mins, 1290, 1409) ~ 8)    # beep around 22:00
+  ) %>% 
+  
+  select (- minutes)
+
+```
+
+### making implicit NAs explicit in esm_pre
+
+```{r, warning=T, message=F}
+
+# we need every possible combination of: day (1-28) x beep (1-8) x session
+esm_pre <- 
+  esm_pre %>%
+  
+  # define sets of possible values for variables to fill 
+  mutate(
+    day  = factor(day, levels = 1:28),
+    beep = factor(beep, levels = 1:8)
+  ) %>% 
+  tidyr::complete(day, beep, session_esm)
+
+```
+
+
+```{r, warning=T, message=F}
+
+# compute days of diary
+start_dates <- 
+  dat_pre %>% 
+  group_by(session) %>% 
+  select(session, date_pre)
+
+```
+
+
+```{r, warning=T, message=F}
+
+dat_diary <- 
+  dat_diary %>% 
+  left_join(start_dates, by = c("session_diary" = "session")) %>%
+  mutate(day_diary = as.numeric(date_diary - date_pre)) %>% 
+  mutate(day_diary = factor(day_diary, levels = 1:28)) %>%
+  select(-date_pre) %>% 
+  tidyr::complete(day_diary, session_diary)
+
+```
+
+## joining datasets to create big_data
+
+```{r, warning=T, message=F}
+
+# esm_pre (already joined version of esm and pre) is joined by diary and consent
+big_data <-
+  esm_pre %>%
+  left_join(dat_diary, by = c("session_esm" = "session_diary", "day" = "day_diary"), keep = TRUE) %>% 
+  left_join(dat_consent, by = c("session_esm" = "session")) %>% 
+  select(contains("session"), contains("day"), everything()) %>%
+  
+  # retrieve missing session_esm from session_diary
+  mutate(
+    session_esm = 
+      if_else(
+        is.na(session_esm),
+        session_diary,
+        session_esm
+      )
+  ) %>% 
+  group_by(session_esm) %>% 
+  mutate(
+    start_date = 
+      if_else(
+        # condition
+        is.na(start_date),
+        # value if true: start_date is constant, so we can use the mean 
+        mean(start_date, na.rm = TRUE),
+        # value if false: stays the same
+        start_date
+      ) 
+  ) %>% 
+  ungroup() %>% 
+
+  # retrieve missing day_diary from day
+  mutate(
+    day_diary =
+      if_else(
+        is.na(day_diary),
+        day,
+        day_diary
+      )
+  )
+
+```
+
+## cleaning joined data
+
+```{r, warning=T, message=F}
+
+# filter those who did not consent or do not have pre data
+big_data <- 
+  big_data %>%
+  filter(consent_final == 1) 
+
+```
+
+## recoding reversed items and calculating sum points of pre
+
+### cerq
+
+```{r, warning=T, message=F}
+
+# self-blame: 1, 10, 19, 28
+# acceptance: 2, 11, 20, 29
+# rumination: 3, 12, 21, 30
+# positive shift of attention: 4, 13, 22, 31
+# planning: 5, 14, 23, 32
+# positive reappraisal 6, 15, 24, 33
+# new perspective: 7, 16, 25, 34
+# catastrophizing: 8, 17, 26, 35
+# blaming others: 9, 18, 27, 36
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    cerq_self_blame        = rowSums(select(., c("cerq_1", "cerq_10", "cerq_19", "cerq_28"))),
+         
+    cerq_acceptance        = rowSums(select(., c("cerq_2", "cerq_11", "cerq_20", "cerq_29"))),
+       
+    cerq_rumination        = rowSums(select(., c("cerq_3", "cerq_12", "cerq_21", "cerq_30"))),
+         
+    cerq_attention         = rowSums(select(., c("cerq_4", "cerq_13", "cerq_22", "cerq_31"))),
+         
+    cerq_plan              = rowSums(select(., c("cerq_5", "cerq_14", "cerq_23", "cerq_32"))),
+         
+    cerq_reapprasial       = rowSums(select(., c("cerq_6", "cerq_15", "cerq_24", "cerq_33"))),
+    
+    cerq_new_perspective   = rowSums(select(., c("cerq_7", "cerq_16", "cerq_25", "cerq_34"))),
+    
+    cerq_catastrophize     = rowSums(select(., c("cerq_8", "cerq_17", "cerq_26", "cerq_35"))),
+    
+    cerq_blame_others      = rowSums(select(., c("cerq_9", "cerq_18", "cerq_27", "cerq_36")))
+    
+  )
+
+```
+
+### mzq
+
+```{r, warning=T, message=F}
+
+# refusing self-reflection: 1, 2, 3, 4
+# emotional awareness: 5, 6, 7, 8
+# psychic equivalence mode: 9, 10, 11, 12
+# regulation of affect: 13, 14, 15
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    mzq_refuse_reflection    = rowSums(select(., c("mzq_1", "mzq_2", "mzq_3", "mzq_4"))),
+         
+    mzq_emotional_awareness  = rowSums(select(., c("mzq_5", "mzq_6", "mzq_7", "mzq_8"))),
+         
+    mzq_psychic_equivalence  = rowSums(select(., c("mzq_9", "mzq_10", "mzq_11", "mzq_12"))),
+         
+    mzq_regulate_affect      = rowSums(select(., c("mzq_13", "mzq_14", "mzq_15"))),
+    
+    mzq_sum                  = rowSums(select(., c("mzq_1":"mzq_11")))
+  )
+
+```
+
+### mss-b
+
+```{r, warning=T, message=F}
+
+# positive schizotypy: 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38
+# negative schizotypy: 1, 4R, 7, 10R, 13, 16, 19, 22, 25R, 28, 31, 34, 37R
+# disorganized schizotypy: 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36
+
+big_data <- 
+  big_data %>% 
+  # recode mss items 2="no"->0, 1="yes" stays the same
+    mutate_at(
+    vars(contains("MSS")),
+    funs(
+      ifelse(
+        . == 2,
+        0,
+        .
+      )
+    )
+  ) %>% 
+  # revert reversed mss items 1->0, 0->1
+  mutate(
+    MSS_BH_4  = abs(MSS_BH_4  -1),
+    MSS_BH_10 = abs(MSS_BH_10 -1),
+    MSS_BH_25 = abs(MSS_BH_25 -1),
+    MSS_BH_37 = abs(MSS_BH_37 -1)
+    ) %>% 
+  
+  mutate(
+    mss_pos = rowSums(select(., c("MSS_BH_2", "MSS_BH_5", "MSS_BH_8", "MSS_BH_11", "MSS_BH_14", "MSS_BH_17", "MSS_BH_20", "MSS_BH_23", "MSS_BH_26", "MSS_BH_29", "MSS_BH_32", "MSS_BH_35", "MSS_BH_38"))),
+    
+    mss_neg = rowSums(select(., c("MSS_BH_1", "MSS_BH_4", "MSS_BH_7", "MSS_BH_10", "MSS_BH_13", "MSS_BH_16", "MSS_BH_19", "MSS_BH_22", "MSS_BH_25", "MSS_BH_28", "MSS_BH_31", "MSS_BH_34", "MSS_BH_37"))),
+             
+    mss_dis = rowSums(select(., c("MSS_BH_3", "MSS_BH_6", "MSS_BH_9", "MSS_BH_12", "MSS_BH_15", "MSS_BH_18", "MSS_BH_21", "MSS_BH_24", "MSS_BH_27", "MSS_BH_30", "MSS_BH_33", "MSS_BH_36")))
+  )
+
+```
+
+### scl-90 and wb
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    depr_sum_pre      = rowSums(select(., contains("SCL_90_depr_pre"))),
+    wellbeing_sum_pre = rowSums(select(., contains("wb_pre")))
+  )
+
+```
+
+## calculating sum points of esm
+
+### ple
+
+```{r, warning=T, message=F}
+
+big_data <-
+  big_data %>%
+  mutate(ple_sum = rowSums(select(., contains("ple"))))
+
+```
+
+## calculating sum points of diary
+
+### scl-90 and wb
+
+```{r, warning=T, message=F}
+
+big_data <-
+  big_data %>%
+  mutate(
+    depr_sum_diary         = rowSums(select(., contains("SCL_90_depr_diary"))),
+    wellbeing_sum_diary    = rowSums(select(., contains("wb_diary")))
+  )
+
+```
+
+### stressors
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate_at(
+    vars(stressor_3:stressor_8, stressor_10:stressor_17), 
+    funs(
+      case_when(
+        . == 1 ~ -2,
+        . == 2 ~ -1,
+        . == 3 ~  0,
+        . == 4 ~  1,
+        . == 5 ~  2
+      )
+    )
+  ) %>% 
+  
+  mutate_at(
+    vars(stressor_1, stressor_18),
+    funs(
+      ifelse(
+        . == 1,
+        -2,
+        .
+      )
+    )
+  ) %>% 
+  
+  mutate(
+    stressor_2 =
+      ifelse(stressor_2 == 1,
+             2,
+             stressor_2
+      ),
+    
+    stressor_9 =
+      case_when(
+        stressor_9 == 1 ~  2,
+        stressor_9 == 2 ~  1,
+        stressor_9 == 3 ~  0,
+        stressor_9 == 4 ~ -1,
+        stressor_9 == 5 ~ -2
+      ),
+   
+# recode extra stressors: if extra stressor is already mentioned among stressors 1-18, then it is considered duplicated and is therefore recoded to 0 — these cases have been manually filtered and are listed below
+
+    stressor_19 =
+      ifelse(
+        # if extra stressor is duplicated...
+        stressor_20 %in% c("Édesanyámmal otthon töltöttem a hétvégét, vidéken.", "új munkatárs", "Egyszeri plusz juttatást kaptam a munkám elismeréseként", "Ígéretet kaptam egy kinevezésre", "Közös hétvége barátokkal", "Fél év kihagyás után végre újra el tudtam menni konditerembe és már nem kell itthon edzenem", "Találkozás", "Kibékültem egy régi baráttal", "Fontos magánéleti kapcsolat aktivitása", "Párkapcsolat fejlődése, kiteljesedése", "párkapcsolat mélyülése",  "vaalami", ".", "barátok meglátogatása", "találkozás egy kedvelt személlyel", "visszajelzések munka kapcsán", "Ma megkaptam az első oltást, nagy megkönnyebbülés", "Az osztályom rendkívül különleges módon köszönte meg az online tanítást.", "Előléptettek a munkahelyemen. Az ezzel járó munkaterhelésem növekedett, de természetesen az anyagi bevételem is nőtt. Mivel sok energiát fektettem bele az előléptetésbe, így most maximálisan elégedett vagyok.", "Felvettek az áhított munkára"),
+        # recode to 0
+        0,
+        # if extra stressor is not duplicated...
+        ifelse(
+          # if mentioned...
+          stressor_19 == 1,
+          # recode to 2
+          2,
+          # otherwise recode to 0
+          0
+        )
+      ),
+    
+    stressor_21 =
+      ifelse(
+        # if extra stressor is duplicated...
+        stressor_22 %in% c("Könyöksérülés" , "Rokonunk halála, apukám egészségi állapotának romlása, kedves ismerős, fontos személy halálhíre, munkahelyen nem biztonságos körülmények közötti kötelező munkavégzés" , "Kiközözösítetté kezdtem válni munkahelyemen, mert még nem vettem fel a Covid elleni védőoltást. A vezetőség erős nyomást gyakorol rám emiatt." , "Leépítések vannak a munkahelyemen, ami a főnökömet érinti és közvetve engem is" , "Megkaptam az első COVID elleni oltást, ami után sok mellékhatás jelentkezett" , "Térdsérülés" , "Krónikus betegség diagnosztizálasa" , "Kórházi sürgősségi ellátás" , "semmi" , "Munkahelyemen teljes mértékű átszervezése kellett vezetnem. Sok bizonytalan tényező, folyamatosan változó információk, gyors döntések nehezítette a munkámat." , "Egészségi állapot" , "amióta covidos voltam folyamatos egészségügyi problémákkal küzdök: most konkrétan az, hogy a menstruáciom két hétre jött meg, extrém erős vérzéssel" , "." , "Pozitívra teszteltek Covid antigen teszten" ,"Fogászati abuzus ( inplantatum)" , "NAV-tól kaptam értesítést, az adóbevallásomon javítani szükséges. Ugyan csak 1-2 sor, de összességében sok rovat módosul ezáltal, sőt időpontfoglalás, és személyes konzultációt igényel." ,"egy beszámolót nem tudtam megtartani, mert nem végztem el a rám bízott feladatokat" , "Az egyik tàrgyamból valószínüleg meg fogok bukni" , "lebetegedtem, hétfőn lesz COVID-tesztem" , "Rendkívül szomorú, és sírós volt a hétvégém," , "Sokat sírtam a magány miatt. A 2. oltás miatt is aggódtam. att is aggódtam, meg hogy a gyerekeim milyen oltá" , "Nagyon legyengültem a 2. Oltás után, furcsa tüneteim is voltak. Sokat aggódtam gyermekeim oltása miatt is." , "Sportserules - bokaszalag szakadas" , "Anyukám kórházba került. (Epegörcs)" , "A jelenlegi főnököm nagyon rosszul kezelte :(" , "Még mindig a munkahelyváltás okozta stressz és bizonytalanság az ami rányomja a bélyegét a napjaimra"),
+        # recode to 0
+        0,
+        # if extra stressor is not duplicated...
+        ifelse(
+          # if mentioned...
+          stressor_21 == 1,
+          # recode to -2 
+          -2,
+          # otherwise recode to 0
+          0
+        )
+      )
+  )
+
+
+```
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>%
+  mutate(stressor_sum = rowSums(select(., contains("stressor"), -stressor_20, -stressor_22)))
+
+```
+
+# data manipulation: filling up big data with pre and diary results
+
+## creating blocks of diary
+
+```{r, warning=T, message=F}
+
+big_data <-
+  big_data %>%
+  mutate(
+    day_diary = as.numeric(day_diary),
+    three_day_block =
+      case_when(
+        between(day_diary,  1,  3)  ~ 1,
+        between(day_diary,  4,  6)  ~ 2,
+        between(day_diary,  7,  9)  ~ 3,
+        between(day_diary, 10, 12)  ~ 4,
+        between(day_diary, 13, 15)  ~ 5,
+        between(day_diary, 16, 18)  ~ 6,
+        between(day_diary, 19, 21)  ~ 7,
+        between(day_diary, 22, 24)  ~ 8,
+        between(day_diary, 25, 27)  ~ 9
+      ) 
+  )
+
+```
+
+## reordering variables
+
+```{r, warning=F, message=F}
+
+big_data <- 
+  big_data %>% 
+  select(session_esm, session_diary, age, gender, edu, day, beep, hour, start_date, date_esm, created_esm, esm_mins, sleep_1:ple_familiarstrange, ple_sum, date_diary, created_diary, ended_diary, three_day_block, menstruation_diary, SCL_90_depr_diary_1:SCL_90_depr_diary_13, depr_sum_diary,  wb_diary_1:wb_diary_5, wellbeing_sum_diary, stressor_1:stressor_22, stressor_sum, created_pre, ended_pre, menstruation_pre:city, job:cerq_36, cerq_self_blame:cerq_blame_others, mzq_1:mzq_15, mzq_refuse_reflection:mzq_sum, MSS_BH_1:MSS_BH_38, mss_pos:mss_dis, SCL_90_depr_pre_1:SCL_90_depr_pre_13, depr_sum_pre, wb_pre1:wb_pre5, wellbeing_sum_pre, consent, consent_final)
+
+```
+
+## retrieving missing diary results by session_diary and diary blocks
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  group_by(session_diary, three_day_block) %>%
+  # fill up depression sum scores by diary blocks (across 3 days before each diary)  
+  mutate(
+    depr_sum_diary =
+      if_else(
+        # condition
+        is.na(depr_sum_diary),
+        # value if true: value is constant within diary blocks, so we can use the mean
+        mean(depr_sum_diary, na.rm = TRUE),
+        # value if false: stays the same
+        depr_sum_diary
+      )
+  ) %>%
+  mutate(
+    # fill up well-being sum scores by diary blocks (across 3 days before each diary)
+    wellbeing_sum_diary =
+      if_else(
+        # condition
+        is.na(wellbeing_sum_diary),
+        # value if true: value is constant within diary blocks, so we can use the mean
+        mean(wellbeing_sum_diary, na.rm = TRUE),
+        # value if false: stays the same
+        wellbeing_sum_diary
+      )
+  ) %>%
+  ungroup() %>% 
+
+  mutate_at(
+      vars(contains("sum_diary")),
+      funs(
+        ifelse(
+          is.nan(.),
+          NA,
+          .
+        )
+      )
+    )
+
+```
+
+## filling up diary results
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  group_by(three_day_block, session_diary) %>% 
+  fill(c(created_diary:stressor_sum), .direction = "updown") %>% 
+  ungroup()
+
+```
+
+## filling up NAs of pre results
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  group_by(session_esm, start_date) %>%
+  fill(c(age, gender, edu, start_date, created_pre:wellbeing_sum_pre), .direction = "updown") %>%
+  ungroup() %>%
+  arrange(session_esm)
+
+```
+
+## filling up sleep data
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  group_by(session_esm, day) %>% 
+  fill(c(sleep_1, sleep_2), .direction = "updown") %>% 
+  ungroup()
+
+```
+
+## reverting factors (beep) back to numeric and coding dummy variables (job, status, chronic illness, session)
+
+### factors back to numberic
+
+```{r, warning=T, message=F}
+
+big_data <-
+  big_data %>% 
+  mutate(
+    day = as.numeric(day),
+    beep = as.numeric(beep)
+  )
+
+```
+
+### creating dummy variables
+
+#### job to dummy
+
+```{r, warning=T, message=F}
+
+big_data <-
+  big_data %>% 
+  mutate(
+    job_training = 
+      ifelse(
+        grepl("képzésben veszek részt", job),
+        1,
+        0
+      ),
+    
+    job_edu_res = 
+      ifelse(
+        grepl("oktatás-nevelés-kutatás", job),
+        1,
+        0
+      ),
+    
+    job_media_art_sport_entert = 
+      ifelse(
+        grepl("művészet-szórakoztatás-sport-média", job),
+        1,
+        0
+      ),
+    job_health = 
+      ifelse(
+        grepl("egészségügy", job),
+        1,
+        0
+      ),
+    
+    job_standby = 
+      ifelse(
+        grepl("készenléti szolgálat", job),
+        1,
+        0
+      ),
+    
+    job_army = 
+      ifelse(
+        grepl("katonaság", job),
+        1,
+        0
+      ),
+    
+    job_public = 
+      ifelse(
+        grepl("közszolgálat-politika", job),
+        1,
+        0
+      ),
+    
+    job_eco_fin = 
+      ifelse(
+        grepl("pénzügy-gazdaság", job),
+        1,
+        0
+      ),
+    
+    job_indus = 
+      ifelse(
+        grepl("ipar", job),
+        1,
+        0
+      ),
+    
+    job_cater_service = 
+      ifelse(
+        grepl("szolgáltatóipar-vendéglátás", job),
+        1,
+        0
+      ),
+    
+    job_transport = 
+      ifelse(
+        grepl("közlekedés-szállítás (humán és áru)", job),
+        1,
+        0
+      ),
+    
+    job_mainten = 
+      ifelse(
+        grepl("telepítés-karbantartás-tisztítás-javítás", job),
+        1,
+        0
+      ),
+    job_construct = 
+      ifelse(
+        grepl("építőipar", job),
+        1,
+        0
+      ),
+    job_agri = 
+      ifelse(
+        grepl("gazdálkodás-halászat-erdőgazdálkodás", job),
+        1,
+        0
+      ),
+    
+    job_admin = 
+      ifelse(
+        grepl("irodai munka és adminisztráció", job),
+        1,
+        0
+      ),
+    
+    job_commerce = 
+      ifelse(
+        grepl("kereskedelem", job),
+        1,
+        0
+      ),
+
+    job_other = 
+      ifelse(
+        grepl("egyéb", job),
+        1,
+        0
+      ),
+    
+    job_without = 
+      ifelse(
+        grepl("jelenleg nem dolgozom", job) |
+        grepl("nyugdíjas", status) |
+        grepl("munkanélküli", status),
+        1,
+        0
+      )
+   )
+
+```
+
+#### job status to dummy
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    status_full = 
+      ifelse(
+        grepl("teljes munkaidő", status),
+        1,
+        0
+      ),
+    
+    status_part =
+      ifelse(
+        grepl("részmunkaidő", status),
+        1,
+        0
+      ),
+    
+    status_entrepre =
+      ifelse(
+        grepl("vállalkozó", status),
+        1,
+        0
+      ),
+    
+    status_freelanc =
+      ifelse(
+        grepl("szabadúszó", status),
+        1,
+        0
+      ),
+    
+    status_childcare =
+      ifelse(
+        grepl("gyes/gyed", status),
+        1,
+        0
+      ),
+    
+    status_sickpay =
+      ifelse(
+        grepl("táppénz (hosszú távú)", status),
+        1,
+        0
+      ),
+    
+    status_without =
+      ifelse(
+        grepl("munkanélküli", status), 
+        1,
+        0
+      ),
+    
+    status_student_full =
+      ifelse(
+        grepl("nappali tagozatos hallgató", status),
+        1,
+        0
+      ),
+    
+    status_pension =
+      ifelse(
+        grepl("nyugdíjas", status),
+        1,
+        0
+      ),
+    
+    status_other =
+      ifelse(
+        grepl("egyéb", status),
+        1,
+        0
+      )
+  )
+
+```
+
+#### chronic disease to dummy
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    chronic_without =
+      ifelse(
+        grepl("nem", chronic_disease),
+        1,
+        0
+      ),
+       
+    chronic_neuro =
+      ifelse(
+        grepl("neurológiai", chronic_disease),
+        1,
+        0
+      ),
+       
+    chronic_psych =
+      ifelse(
+        grepl("pszichiátriai", chronic_disease),
+        1,
+        0
+      ),
+    
+    chronic_hormon =
+      ifelse(
+        grepl("endokrinológiai/hormonális", chronic_disease),
+        1,
+        0
+      )
+   )
+
+```
+
+#### recoding exercise
+
+```{r message=T, warning=F}
+
+big_data <- 
+  big_data %>%
+  mutate(
+    exercise = 
+      ifelse(
+        exercise == "no_exercise",
+        1,
+        exercise
+    ),
+    exercise = as.numeric(exercise)
+  )
+
+```
+
+#### recoding income and expense
+
+```{r, warning=T, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    income =
+      ifelse(
+        income == "no_income",
+        1, 
+        income
+      ),
+    income = as.numeric(income),
+    
+    expense =
+      ifelse(
+        expense == "no_income",
+        1,
+        expense
+      ),
+    expense = as.numeric(expense)
+  )
+
+```
+
+#### covid to dummy
+
+```{r, warning=F, message=F}
+
+big_data <- 
+  big_data %>% 
+  mutate(
+    covid_diagnosis = covid_1,
+    covid_currently =
+      ifelse(
+        covid_4 == 1,
+        0,
+        1
+      )
+  )
+
+```
+
+## reordering variables and recoding sessions to ids
+
+```{r, warning=F, message=F}
+
+big_data <- 
+  big_data %>% 
+  select(session_esm:city, job_training:job_without, status_full:status_other, living_together, chronic_without:chronic_hormon, height:homeoffice, covid_diagnosis, covid_currently, cerq_1:wellbeing_sum_pre, contains(c("mzq_", "mss_", "cerq"))) %>% 
+  arrange(session_esm) %>% 
+  mutate(id_esm = as.numeric(as.factor(session_esm))) %>%
+  select(id_esm, session_esm, day, beep, three_day_block, everything(),
+         -session_diary) %>% 
+  distinct()
+
+```
+
+# further screening of bugged ESM sessions
+
+```{r, warning=T, message=T}
+
+# identify duplicated esm sessions
+esm_duplicated <- 
+  big_data %>%
+  group_by(session_esm, day) %>%
+    filter(duplicated(beep)) %>% 
+    ungroup()
+  
+# discard sessions based on created_esm timestamp
+big_data <- 
+  big_data %>% 
+  mutate(created_esm = as.character(created_esm)) %>% 
+  filter(created_esm != "2021-04-23 11:36:27" | is.na(created_esm)) %>% 
+  filter(created_esm != "2021-04-23 12:05:06" | is.na(created_esm)) %>%
+  filter(created_esm != "2021-05-11 14:22:21" | is.na(created_esm)) %>%
+  filter(created_esm != "2021-05-11 14:23:20" | is.na(created_esm)) %>%
+  filter(created_esm != "2021-05-11 14:25:37" | is.na(created_esm)) %>%
+  mutate(created_esm = as.POSIXct(created_esm))
+
+```
+
+# writing big_data into a csv file
+
+```{r, warning=F, message=F}
+
+write_csv(
+  mutate(big_data, created_esm = format(created_esm, "%Y-%m-%d %H:%M")),
+  "processed_data/big_data.csv")
+
+```
+

@@ -1,0 +1,705 @@
+---
+title: "04_descriptive_stats"
+author: "Flóra Hann"
+output: html_document
+---
+
+```{r, message = F, warning = F}
+
+options(scipen = 999)
+
+### loading packages
+
+library(psych)
+library(tidyverse)
+library(dplyr)
+library(car)
+library(data.table)
+library(lubridate)
+library(git2r)
+library(naniar)
+library(hms)
+library(nortest)
+
+```
+
+
+# importing and joining datasets of self-reports and behavioural assessments
+
+```{r}
+
+### import datasets of self-reports and behavioural assessments
+
+big_data <- read.csv("processed_data/big_data.csv")
+
+dat_pre_cleaned <- read.csv("raw_data/dat_pre_cleaned.csv")
+
+dat_cogtask <- read.csv("processed_data/dat_cogtask.csv")
+
+dat_esm_cleaned_unfiltered <- read.csv("raw_data/dat_esm_cleaned_unfiltered.csv")
+
+model_dat <- read.csv("processed_data/model_dat.csv")
+
+dat_cleaned <- read.csv("processed_data/dat_cleaned.csv")
+
+big_data_screened <- read.csv("processed_data/big_data_screened.csv")
+
+model_dat_filtered <- read.csv("processed_data/model_dat_filtered.csv")
+
+```
+
+# sample demographics
+
+## cross-sectional sample
+
+```{r}
+
+# number and age of participants  
+  
+  dat_pre_cleaned %>% 
+    filter(!is.na(session)) %>% 
+    select(session, age) %>% 
+    distinct() %>% 
+    summarise(N         = n(),
+              Mean      = round(mean(age), digits = 2),
+              Median    = round(median(age), digits = 2),
+              SD        = round(sd(age), digits = 2),
+              Range_min = min(age),
+              Range_max = max(age))
+
+
+# gender
+
+  # 1 = Female
+  # 2 = Male
+
+  # NA:
+  # 3 = Other
+
+dat_pre_cleaned %>% 
+  filter(!is.na(session)) %>% 
+  select(session, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table()
+
+dat_pre_cleaned %>% 
+  filter(!is.na(session)) %>% 
+  select(session, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+
+# education
+
+  # 1 = Primary school or lower
+  # 3 = Vocational school without high school diploma
+  # 4 = High school diploma or equivalent 
+  # 5 = Bachelor's or Master's degree
+  # 6 = Doctorate (PhD)
+  # 7 = Other
+  
+dat_pre_cleaned %>% 
+  filter(!is.na(session)) %>% 
+  select(session, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table()
+
+dat_pre_cleaned %>% 
+  filter(!is.na(session)) %>% 
+  select(session, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+```
+
+## proceeded to the ESM phase
+
+```{r}
+
+# number of participants
+
+dat_esm_cleaned_unfiltered %>%
+    filter(!is.na(session_esm), (!is.na(ended_esm))) %>%
+    select(session_esm) %>%
+    distinct() %>%
+    summarise(N = n_distinct(session_esm))
+
+```
+
+## not included
+
+```{r}
+
+# identify participants not included in the model
+
+model_dat_participants <- model_dat_filtered %>% 
+  select(id_esm:start_date) %>% 
+  mutate(
+    gender =
+      if_else(
+        gender == "Female",
+        1,
+        2
+      )
+    ) %>%
+  distinct()
+
+dat_not_included <- dat_pre_cleaned %>%
+  filter(!is.na(session)) %>% 
+  anti_join(model_dat_participants, by = c("session" = "session_esm"))
+
+
+# number and age of participants  
+
+dat_not_included %>% 
+  select(session, age) %>% 
+  distinct() %>% 
+  summarise(N         = n_distinct(session),
+            Mean      = round(mean(age), digits = 2),
+            Median    = round(median(age), digits = 2),
+            SD        = round(sd(age), digits = 2),
+            Range_min = min(age),
+            Range_max = max(age))
+
+# gender
+
+  # 1 = Female
+  # 2 = Male
+
+  # NA:
+  # 3 = Other
+
+dat_not_included %>%
+  select(session, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table()
+
+dat_not_included %>%
+  select(session, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+# education
+
+  # 1 = Primary school or lower
+  # 3 = Vocational school without high school diploma
+  # 4 = High school diploma or equivalent 
+  # 5 = Bachelor's or Master's degree
+  # 6 = Doctorate (PhD)
+  # 7 = Other
+  
+dat_not_included %>% 
+  select(session, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table()
+
+dat_not_included %>% 
+  select(session, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+```
+
+## final sample
+
+```{r}
+
+# number and age of participants  
+
+model_dat_filtered %>% 
+  filter(!is.na(id_esm)) %>% 
+  select(id_esm, age) %>% 
+  distinct() %>% 
+  summarise(N         = n_distinct(id_esm),
+            Mean      = round(mean(age), digits = 2),
+            Median    = round(median(age), digits = 2),
+            SD        = round(sd(age), digits = 2),
+            Range_min = min(age),
+            Range_max = max(age))
+
+# gender
+
+  # 1 = Female
+  # 2 = Male
+
+  # NA:
+  # 3 = Other
+
+model_dat_filtered %>% 
+  filter(!is.na(id_esm)) %>% 
+  select(id_esm, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table()
+
+model_dat_filtered %>% 
+  filter(!is.na(id_esm)) %>% 
+  select(id_esm, gender) %>%
+  distinct() %>% 
+  select(gender) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+# education
+
+  # 1 = Primary school or lower
+  # 3 = Vocational school without high school diploma
+  # 4 = High school diploma or equivalent 
+  # 5 = Bachelor's or Master's degree
+  # 6 = Doctorate (PhD)
+  # 7 = Other
+  
+model_dat_filtered %>% 
+  filter(!is.na(id_esm)) %>% 
+  select(id_esm, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table()
+
+model_dat_filtered %>% 
+  filter(!is.na(id_esm)) %>% 
+  select(id_esm, edu) %>%
+  distinct() %>% 
+  select(edu) %>% 
+  table() %>% 
+  prop.table() %>% `*`(100) %>% round(2)
+
+```
+
+# descriptives
+
+## descriptives of ESM surveys in final sample
+
+```{r}
+
+# total number of completed esm surveys
+
+model_dat_filtered %>%
+  distinct() %>% 
+  summarise(n_id  = length(unique(id_esm)),
+            n_obs = length(event_unpleasantness_centered))
+
+#...and per capita
+
+big_data_screened %>%
+  distinct() %>% 
+  filter(!is.na(date_esm)) %>% 
+  group_by(id_esm) %>% 
+  summarise(n_obs = length(date_esm)) %>% 
+  ungroup() %>% 
+  summarise(max_n_obs    = max(n_obs),
+            min_n_obs    = min(n_obs),
+            mean_n_obs   = mean(n_obs),
+            median_n_obs = median(n_obs),
+            sd_n_obs     = sd(n_obs))
+
+
+
+  model_dat_ESM <- model_dat %>% 
+  filter(!is.na(event_pleasantness))
+  
+  observations_not_included_ESM <- model_dat_ESM %>% 
+  anti_join(model_dat_filtered, by = c("id_esm", "day", "beep"))
+
+
+# descriptives of event pleasantness
+
+  # in observations included
+  
+  model_dat_filtered <- model_dat_filtered %>%
+    mutate(event_unpleasantness = 8-event_pleasantness)
+  
+  model_dat_filtered %>% 
+    select(id_esm, day, beep, event_unpleasantness) %>% 
+    summarise(
+      mean_evunpleasant   = mean(event_unpleasantness),
+      median_evunpleasant = median(event_unpleasantness),
+      sd_evunpleasant     = sd(event_unpleasantness),
+      min_evunpleasant    = min(event_unpleasantness),
+      max_evunpleasant    = max(event_unpleasantness)
+    )
+  
+  
+  # in observations not included
+    
+  observations_not_included_ESM <- observations_not_included_ESM %>% 
+    mutate(event_unpleasantness = 8-event_pleasantness)
+
+  observations_not_included_ESM %>% 
+  select(id_esm, day, beep, event_unpleasantness) %>% 
+    summarise(
+      mean_evunpleasant   = mean(event_unpleasantness),
+      median_evunpleasant = median(event_unpleasantness),
+      sd_evunpleasant     = sd(event_unpleasantness),
+      min_evunpleasant    = min(event_unpleasantness),
+      max_evunpleasant    = max(event_unpleasantness)
+    )
+
+```
+
+## descriptives of cogtasks in final sample
+
+### go/no-go
+
+```{r}
+
+# total number of completed go/no-go tasks
+
+big_data_screened %>%
+  distinct() %>%
+  filter(!is.na(gonogo_dprime)) %>% 
+  summarise(n_id  = length(unique(id_esm)),
+            n_obs = length(gonogo_dprime))
+
+# ...and per capita
+
+big_data_screened %>%
+  distinct() %>% 
+  filter(!is.na(gonogo_dprime)) %>% 
+  group_by(id_esm) %>% 
+  summarise(n_obs = length(id_esm)) %>%
+  ungroup() %>% 
+  summarise(max_n_obs    = max(n_obs),
+            min_n_obs    = min(n_obs),
+            mean_n_obs   = mean(n_obs),
+            median_n_obs = median(n_obs),
+            sd_n_obs     = sd(n_obs))
+
+# descriptives of go/no-go performance
+
+model_dat_filtered %>%
+  select(id_esm, day, beep, gonogo_dprime) %>%
+  summarise(
+    mean_gonogo_dprime   = mean(gonogo_dprime),
+    median_gonogo_dprime = median(gonogo_dprime),
+    sd_gonogo_dprime     = sd(gonogo_dprime),
+    min_gonogo_dprime    = min(gonogo_dprime),
+    max_gonogo_dprime    = max(gonogo_dprime)
+  )
+
+# descriptives of go/no-go performance in observations not included
+
+  # identifying observations not included
+
+  model_dat_gonogo <- model_dat %>% 
+    filter(!is.na(gonogo_dprime))
+  
+  observations_not_included_gonogo <- model_dat_gonogo %>% 
+    anti_join(model_dat_filtered, by = c("id_esm", "day", "beep"))
+  
+  observations_not_included_gonogo %>%
+  select(id_esm, day, beep, gonogo_dprime) %>%
+  summarise(
+    mean_gonogo_dprime   = mean(gonogo_dprime),
+    median_gonogo_dprime = median(gonogo_dprime),
+    sd_gonogo_dprime     = sd(gonogo_dprime),
+    min_gonogo_dprime    = min(gonogo_dprime),
+    max_gonogok_dprime    = max(gonogo_dprime)
+  )
+
+```
+
+
+### n-back
+
+```{r}
+   
+# total number of completed n-back tasks
+   
+big_data_screened %>%
+  distinct() %>% 
+  filter(!is.na(nback_dprime)) %>% 
+  summarise(n_id = length(unique(id_esm)),
+            n_obs = length(nback_dprime))
+   
+# ...and per capita
+  
+  big_data_screened %>%
+    distinct() %>% 
+    filter(!is.na(nback_dprime)) %>% 
+    group_by(id_esm) %>% 
+    summarise(n_obs = length(id_esm)) %>% 
+    ungroup() %>% 
+    summarise(max_n_obs = max(n_obs),
+              min_n_obs = min(n_obs),
+              mean_n_obs = mean(n_obs),
+              median_n_obs = median(n_obs),
+              sd_n_obs = sd(n_obs))
+  
+# descriptives of n-back performance in observations included
+
+model_dat_filtered %>%
+  select(id_esm, day, beep, nback_dprime) %>%
+  summarise(
+    mean_nback_dprime   = mean(nback_dprime),
+    median_nback_dprime = median(nback_dprime),
+    sd_nback_dprime     = sd(nback_dprime),
+    min_nback_dprime    = min(nback_dprime),
+    max_nback_dprime    = max(nback_dprime)
+  )
+
+# descriptives of n-back performance in observations not included
+
+  # identifying observations not included
+
+  model_dat_nback <- model_dat %>% 
+    filter(!is.na(nback_dprime))
+  
+  observations_not_included_nback <- model_dat_nback %>% 
+    anti_join(model_dat_filtered, by = c("id_esm", "day", "beep"))
+  
+  observations_not_included_nback %>%
+  select(id_esm, day, beep, nback_dprime) %>%
+  summarise(
+    mean_nback_dprime   = mean(nback_dprime),
+    median_nback_dprime = median(nback_dprime),
+    sd_nback_dprime     = sd(nback_dprime),
+    min_nback_dprime    = min(nback_dprime),
+    max_nback_dprime    = max(nback_dprime)
+  )
+  
+```
+
+
+## statistical tests for 'not included' and 'final' samples
+
+```{r}
+
+# test for median age
+  
+  # normality test
+  shapiro.test(dat_not_included$age)
+  shapiro.test(model_dat_participants$age)
+    # -> normality not assumed -> mann-whitney
+  
+  # mann-whitney test
+  # wilcox.test(age ~ group, data = age_test)
+  wilcox.test(dat_not_included$age, model_dat_participants$age)
+  
+
+# test for gender distribution
+  gender_compare_not_included <- tibble(gender = dat_not_included$gender, group = "not included")
+  gender_compare_included <- tibble(gender = model_dat_participants$gender, group = "included")
+  gender_compare <- gender_compare_not_included %>% bind_rows(gender_compare_included)
+  
+  chisq.test(gender_compare$group, gender_compare$gender)
+
+
+# test for education
+  edu_compare_not_included <- tibble(edu = dat_not_included$edu, group = "not_included")
+  edu_compare_included <- tibble(edu = model_dat_participants$edu, group = "included")
+  edu_compare <- edu_compare_not_included %>% bind_rows(edu_compare_included)
+  
+  chisq.test(edu_compare$group, edu_compare$edu)
+  
+
+# test for go/no-go
+   
+  # normality test
+  shapiro.test(model_dat_filtered$gonogo_dprime)
+  shapiro.test(observations_not_included_gonogo$gonogo_dprime)
+    # -> normality not assumed -> mann-whitney
+  
+  # mann-whitney test
+  wilcox.test(model_dat_filtered$gonogo_dprime, observations_not_included_gonogo$gonogo_dprime)
+  
+
+# test for n-back
+  
+  # normality test
+  shapiro.test(model_dat_filtered$nback_dprime)
+  shapiro.test(observations_not_included_nback$nback_dprime)
+    # -> normality not assumed -> mann-whitney
+
+  # mann-whitney test
+  wilcox.test(model_dat_filtered$nback_dprime, observations_not_included_gonogo$gonogo_dprime)
+  
+  
+# test for event unpleasantness 
+  
+  # normality test
+  shapiro.test(model_dat_filtered$event_unpleasantness)
+  lillie.test(observations_not_included_ESM$event_unpleasantness)
+    # -> normality not assumed -> mann-whitney
+
+  # mann-whitney test
+  wilcox.test(model_dat_filtered$event_unpleasantness, observations_not_included_ESM$event_unpleasantness)
+  
+  
+```
+
+# calculating compliance in unscreened sample
+
+## compliance on ESM surveys
+
+```{r}
+
+# identify day of quitting
+
+dat_unscreened_maxday_esm <- dat_cleaned %>% 
+  select(id_esm, date_esm, day) %>% 
+  filter(!is.na(date_esm)) %>% 
+  group_by(id_esm) %>% 
+  summarise(max_day_esm = max(day))
+
+dat_cleaned <- dat_cleaned %>% 
+  left_join(dat_unscreened_maxday_esm, by = "id_esm")
+
+
+# compliance on ESM survey
+
+dat_cleaned %>% 
+  distinct() %>% 
+  select(id_esm, date_esm, day, beep, max_day_esm) %>% 
+  group_by(id_esm) %>%
+  summarise(completed = sum(!is.na(date_esm)),
+            all = max_day_esm * 8, 
+            esm_compl_initial = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+  summarise(median_initial_compl = median(esm_compl_initial),
+            mean_initial_compl   = mean(esm_compl_initial),
+            sd_initial_compl     = sd(esm_compl_initial),
+            min_initial_compl    = min(esm_compl_initial),
+            max_initial_compl    = max(esm_compl_initial))
+
+```
+
+
+## compliance on cogtasks
+
+### go/no-go
+
+```{r}
+
+dat_cleaned %>%
+  distinct() %>% 
+  select(id_esm, start_date, day, beep, gonogo_dprime, max_day_esm) %>%
+  group_by(id_esm) %>% 
+  summarise(completed = sum(!is.na(gonogo_dprime)),
+            all = max_day_esm * 8,
+            gonogo_compl_initial = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+  
+  summarise(median_initial_compl = median(gonogo_compl_initial),
+            mean_initial_compl   = mean(gonogo_compl_initial),
+            sd_initial_compl     = sd(gonogo_compl_initial),
+            min_initial_compl    = min(gonogo_compl_initial),
+            max_initial_compl    = max(gonogo_compl_initial))
+
+```
+
+
+### n-back
+
+```{r}
+
+dat_cleaned %>%
+  distinct() %>% 
+  select(id_esm, start_date, day, beep, nback_dprime, max_day_esm) %>%
+  group_by(id_esm) %>% 
+  summarise(completed = sum(!is.na(nback_dprime)),
+            all = max_day_esm * 8,
+            nback_compl_initial = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+  
+  summarise(median_initial_compl = median(nback_compl_initial),
+            meaninitiall_compl   = mean(nback_compl_initial),
+            sd_initial_compl     = sd(nback_compl_initial),
+            min_initial_compl    = min(nback_compl_initial),
+            max_initial_compl    = max(nback_compl_initial))
+
+```
+
+
+# calculating compliance in final sample
+
+## compliance on ESM surveys
+
+```{r}
+
+# filter participants who are included in model_dat, but keep all of their data, even rows not included in model_dat
+
+dat_cleaned_model <- dat_cleaned %>% 
+  semi_join(model_dat_filtered, by = "id_esm")
+
+
+dat_cleaned_model %>%
+  distinct() %>% 
+  select(id_esm, date_esm, day, beep, max_day_esm) %>% 
+  group_by(id_esm) %>%
+  summarise(completed = sum(!is.na(date_esm)),
+            all = max_day_esm * 8, 
+            esm_compl_final = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+  summarise(median_final_compl = median(esm_compl_final),
+            mean_final_compl   = mean(esm_compl_final),
+            sd_final_compl     = sd(esm_compl_final),
+            min_final_compl    = min(esm_compl_final),
+            max_final_compl    = max(esm_compl_final))
+
+```
+
+
+## compliance on cogtasks
+
+### go/no-go
+
+```{r}
+
+dat_cleaned_model %>%
+  distinct() %>% 
+  select(id_esm, start_date, day, beep, gonogo_dprime, max_day_esm) %>%
+  group_by(id_esm) %>% 
+  summarise(completed = sum(!is.na(gonogo_dprime)),
+            all = max_day_esm * 8,
+            gonogo_compl_final = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+ 
+  summarise(median_final_compl = median(gonogo_compl_final),
+            mean_final_compl   = mean(gonogo_compl_final),
+            sd_final_compl     = sd(gonogo_compl_final),
+            min_final_compl    = min(gonogo_compl_final),
+            max_final_compl    = max(gonogo_compl_final))
+
+```
+
+
+### n-back
+
+```{r}
+  
+dat_cleaned_model %>%
+  distinct() %>%
+  select(id_esm, start_date, day, beep, nback_dprime, max_day_esm) %>%
+  group_by(id_esm) %>%
+  summarise(completed = sum(!is.na(nback_dprime)),
+            all = max_day_esm * 8,
+            nback_compl_final = (completed / all) * 100
+  ) %>%
+  ungroup() %>%
+  
+  summarise(median_final_compl = median(nback_compl_final),
+            mean_final_compl   = mean(nback_compl_final),
+            sd_final_compl     = sd(nback_compl_final),
+            min_final_compl    = min(nback_compl_final),
+            max_final_compl    = max(nback_compl_final))
+
+```
+

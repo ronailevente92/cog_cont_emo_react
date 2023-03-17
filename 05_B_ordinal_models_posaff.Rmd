@@ -1,0 +1,352 @@
+---
+title: "R Notebook for posaff"
+output: html_document
+author: "Levente Rónai, Bertalan Polner"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+## Setup and load packages
+
+```{r}
+
+options(scipen = 999)
+
+# Import and tidy data
+library(tidyverse)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(lavaan)
+library(git2r)
+
+
+# Modelling
+# Ordinal regression
+library(ordinal)
+# Model visualisation, diagnostics and summary
+library(sjPlot)
+```
+
+## Cumulative mixed models for positive affective states (cheerfulness and calmness)
+
+Conducting the same model selection and #### Assumption checking process that one can see with the models predicting negative affective states
+
+Models are pretty much okay with the assumptions; however issues occurred with complete separation, convergence and loglik/aic discrepancy in some cases, see the model fits below
+
+```{r}
+sessionInfo()
+```
+
+## Load and prepare data
+
+```{r}
+model_dat <- read.csv("processed_data/model_dat.csv")
+```
+
+## Convert data on emotional states into ordinal factors
+
+```{r}
+model_ord_dat <-
+  model_dat %>% 
+  mutate(
+    across(c(angry, sad, cheerful, calm), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))
+  )
+```
+
+## Predicting cheerfulness
+
+### Go/nogo
+
+```{r}
+
+# mod_clmm_cheerful_gonogo <-
+#   model_ord_dat %>%
+#   clmm(
+#     cheerful ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered +
+#       (gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_cheerful_gonogo,"saved_models/ordinal_models/mod_clmm_cheerful_gonogo.rds")
+
+### the model converges only with the random effect for gonogo scores
+
+mod_clmm_cheerful_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_gonogo.rds")
+
+```
+
+#### Assumption check
+
+```{r}
+
+# mod_clmm2_cheerful_gonogo <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     cheerful ~ 1 + event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_cheerful_gonogo,"saved_models/ordinal_models/mod_clmm2_cheerful_gonogo.rds")
+mod_clmm2_cheerful_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm2_cheerful_gonogo.rds")
+
+```
+
+```{r}
+
+# mod_clmm2_cheerful_gonogo_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     cheerful ~ 1,
+#     nominal = ~ event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_cheerful_gonogo_nominal,"saved_models/ordinal_models/mod_clmm2_cheerful_gonogo_nominal.rds")
+mod_clmm2_cheerful_gonogo_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_cheerful_gonogo_nominal.rds")
+```
+
+#### AIC shows virtually no difference, while Likelihood-ratio test prefers the model with the nominal effects.
+
+```{r}
+anova(
+  mod_clmm2_cheerful_gonogo,
+  mod_clmm2_cheerful_gonogo_nominal
+)
+
+```
+
+```{r}
+
+AIC(
+  mod_clmm2_cheerful_gonogo,
+  mod_clmm2_cheerful_gonogo_nominal
+)
+
+```
+
+### Nback
+
+```{r}
+
+# mod_clmm_cheerful_nback <-
+#   model_ord_dat %>%
+#   clmm(
+#     cheerful ~ age + gender + # day + beep +
+#       event_unpleasantness_centered * nback_dprime_centered +
+#       (event_unpleasantness_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_cheerful_nback,"saved_models/ordinal_models/mod_clmm_cheerful_nback.rds")
+
+mod_clmm_cheerful_nback <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_nback.rds")
+
+```
+
+```{r}
+tab_model(mod_clmm_cheerful_nback)
+```
+
+This model produces NaNs for confidence intervals and p values which is due to complete separation:
+
+<https://stats.stackexchange.com/questions/231777/multinomial-logistic-regression-nans-produced-in-r-and-no-significant-variables>
+
+<https://stats.oarc.ucla.edu/other/mult-pkg/faq/general/faqwhat-is-complete-or-quasi-complete-separation-in-logistic-regression-and-what-are-some-strategies-to-deal-with-the-issue/>
+
+If day and beep excluded, the model converges
+
+#### Assumption check
+
+```{r}
+
+# mod_clmm2_cheerful_nback <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     cheerful ~ 1 + event_unpleasantness_centered * nback_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_cheerful_nback,"saved_models/ordinal_models/mod_clmm2_cheerful_nback.rds")
+mod_clmm2_cheerful_nback <- readRDS("saved_models/ordinal_models/mod_clmm2_cheerful_nback.rds")
+```
+
+```{r}
+# mod_clmm2_cheerful_nback_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     cheerful ~ 1,
+#     nominal = ~ event_unpleasantness_centered * nback_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# 
+# saveRDS(mod_clmm2_cheerful_nback_nominal,"saved_models/ordinal_models/mod_clmm2_cheerful_nback_nominal.rds")
+mod_clmm2_cheerful_nback_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_cheerful_nback_nominal.rds")
+```
+
+```{r}
+anova(
+  mod_clmm2_cheerful_nback,
+  mod_clmm2_cheerful_nback_nominal
+)
+
+```
+
+```{r}
+
+AIC(
+  mod_clmm2_cheerful_nback,
+  mod_clmm2_cheerful_nback_nominal
+)
+
+```
+
+According to AIC, the nominal model is the better one whereas the loglik indicates the ordinal as the better fit: proportional odds assumption might be violated in this model
+
+## Predicting calmness
+
+### Go/nogo
+
+```{r}
+
+# mod_clmm_calm_gonogo <-
+#   model_ord_dat %>%
+#   clmm(
+#     calm ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_calm_gonogo,"saved_models/ordinal_models/mod_clmm_calm_gonogo.rds")
+
+mod_clmm_calm_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_calm_gonogo.rds")
+
+```
+
+#### Assumption check
+
+```{r}
+
+# mod_clmm2_calm_gonogo <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     calm ~ 1 + event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_calm_gonogo,"saved_models/ordinal_models/mod_clmm2_calm_gonogo.rds")
+mod_clmm2_calm_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm2_calm_gonogo.rds")
+```
+
+```{r}
+# mod_clmm2_calm_gonogo_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     calm ~ 1,
+#     nominal = ~ event_unpleasantness_centered * gonogo_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_calm_gonogo_nominal,"saved_models/ordinal_models/mod_clmm2_calm_gonogo_nominal.rds")
+mod_clmm2_calm_gonogo_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_calm_gonogo_nominal.rds")
+```
+
+```{r}
+anova(
+  mod_clmm2_calm_gonogo,
+  mod_clmm2_calm_gonogo_nominal
+)
+
+```
+
+```{r}
+
+AIC(
+  mod_clmm2_calm_gonogo,
+  mod_clmm2_calm_gonogo_nominal
+)
+
+```
+
+### Nback
+
+```{r}
+
+# mod_clmm_calm_nback <-
+#   model_ord_dat %>%
+#   clmm(
+#     calm ~ age + gender + beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered +
+#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_calm_nback,"saved_models/ordinal_models/mod_clmm_calm_nback.rds")
+
+mod_clmm_calm_nback <- readRDS("saved_models/ordinal_models/mod_clmm_calm_nback.rds")
+
+
+```
+
+#### Assumption check
+
+```{r}
+
+# mod_clmm2_calm_nback <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     calm ~ 1 + event_unpleasantness_centered * nback_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_calm_nback,"saved_models/ordinal_models/mod_clmm2_calm_nback.rds")
+mod_clmm2_calm_nback <- readRDS("saved_models/ordinal_models/mod_clmm2_calm_nback.rds")
+```
+
+```{r}
+# mod_clmm2_calm_nback_nominal <-
+#   model_ord_dat %>% 
+#   clmm2(
+#     calm ~ 1,
+#     nominal = ~ event_unpleasantness_centered * nback_dprime_centered,
+#     random =  factor(id_esm), 
+#     data = .,
+#     Hess = TRUE
+#   )
+# saveRDS(mod_clmm2_calm_nback_nominal,"saved_models/ordinal_models/mod_clmm2_calm_nback_nominal.rds")
+mod_clmm2_calm_nback_nominal <- readRDS("saved_models/ordinal_models/mod_clmm2_calm_nback_nominal.rds")
+```
+
+```{r}
+anova(
+  mod_clmm2_calm_nback,
+  mod_clmm2_calm_nback_nominal
+)
+```
+
+```{r}
+
+AIC(
+  mod_clmm2_calm_nback,
+  mod_clmm2_calm_nback_nominal
+)
+
+```
+
+```{r}
+tab_model(mod_clmm_cheerful_gonogo, mod_clmm_cheerful_nback, mod_clmm_calm_gonogo, mod_clmm_calm_nback)
+```

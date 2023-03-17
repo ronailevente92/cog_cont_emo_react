@@ -1,0 +1,276 @@
+---
+title: "Within-session reliability of cognitive control tasks"
+output: html_document
+author: "Levente Rónai, Bertalan Polner"
+
+---
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lme4)
+library(sjPlot)
+```
+
+# between-individual reliability
+
+```{r}
+
+model_dat <- 
+  read.csv("processed_data/model_dat.csv")
+
+```
+
+```{r}
+
+icc_gng <- lmer(gonogo_dprime ~ 1 + (1 | id_esm), data = model_dat)
+icc_nb  <- lmer(nback_dprime ~ 1 + (1 | id_esm), data = model_dat)
+
+
+tab_model(
+  icc_gng,
+  icc_nb,
+  
+  show.ngroups = TRUE,  
+  p.val = "satterthwaite", 
+  show.aic = TRUE,
+  show.aicc = TRUE,
+  p.style = "stars",
+  digits = 2, 
+  digits.re = 3, 
+  emph.p = TRUE,  
+  string.ci = "95% CI",
+  dv.labels = 
+    c("gonogo_dprime",
+      "nback_dprime")
+)
+
+```
+
+# Prepare data
+
+```{r}
+dat_cogtask <- 
+  read_csv("processed_data/dat_cogtask_raw.csv")
+
+```
+
+```{r}
+filtered <-
+  read_csv("processed_data/dat_cogtask.csv")
+```
+Keep raw cogtask data only for those sessions that survived screening 
+
+```{r}
+dat_cogtask <- 
+  dat_cogtask %>% 
+  semi_join(filtered, 
+            by = 
+              c("session_esm" = "session_esm", 
+                "date_cogtask" = "date_cogtask_orig")
+            ) 
+```
+
+
+
+# Calculate split-half reliability
+
+## Function to calculate key task metrics
+
+```{r}
+calc_task_indices <- function(dat){
+  
+  dat <-
+    dat %>%
+    mutate(
+      corr_rt = ifelse(trial_type == 1, rt, NA)
+    ) %>%
+    group_by(session_esm, date_cogtask) %>% 
+    summarise(
+      n_of_trials    = mean(count_of_trial),
+      task           = max(as.character(task)),
+      corr_rt_median = median(corr_rt, na.rm = T),
+      n_hit          = sum(trial_type == 1 & !is.na(rt)),
+      n_fa           = sum(trial_type == 0 & !is.na(rt)),
+      n_miss         = sum(trial_type == 1 & is.na(rt)),
+      n_cr           = sum(trial_type == 0 & is.na(rt)),
+      n_targets      = n_hit + n_miss,
+      n_distractors  = n_fa + n_cr
+    ) %>% 
+    ungroup()
+  
+  dprime <- 
+    psycho::dprime(
+      n_hit         = dat$n_hit,
+      n_fa          = dat$n_fa,
+      n_miss        = dat$n_miss,
+      n_cr          = dat$n_cr,
+      n_targets     = dat$n_targets,
+      n_distractors = dat$n_distractors)
+  
+  
+  dat <-
+    dat %>%
+    cbind(dprime) %>% 
+    select(everything(), -c(n_hit:n_distractors), -c(aprime:c))   %>%
+    group_by(session_esm, task) %>%
+    mutate_at(vars(corr_rt_median, dprime, beta),
+              ~scale(., scale = FALSE)
+    ) %>%
+    ungroup()
+  
+  return(dat)
+}
+
+```
+
+## Function to calculate split-half reliability using Spearman-Brown formula
+
+```{r}
+split_half_sb <- function(dat){
+  
+  metrics <- c("dprime", "beta", "corr_rt_median")
+  
+  task_name <- dat$task
+  
+  # Initilize vector for results
+  split_half_corr <- numeric()
+  
+  # Calculate correlation between metrics computed in the two halves
+  for(metric in metrics){
+    split_half_corr[str_c(task_name, "_", metric )] <- 
+      dat %>% 
+      select(contains(metric)) %>% 
+      cor(use = "pairwise.complete.obs") %>% 
+      .[1,2]
+  }
+  # Apply Spearman-Brown formula
+  split_half_reliability <- split_half_corr*2/(1 + split_half_corr)  
+  
+  
+}
+```
+
+```{r, warning=FALSE, message=FALSE}
+# n_samples <- 100
+# res <- list()
+# for(i in 1:n_samples){
+# 
+# 
+#   # Create random halves
+# 
+#   slices <- list()
+# 
+#   slices[[1]] <-
+#     dat_cogtask %>%
+#     group_by(session_esm, task, date_cogtask, trial_type) %>%
+#     slice_sample(prop = 0.5) %>%
+#     ungroup()
+# 
+#   slices[[2]] <-
+#     dat_cogtask %>%
+#     anti_join(slices[[1]])
+# 
+#   # Calculate task indices in both halves
+# 
+#   dat_splithalves <-
+#     map(slices, calc_task_indices) %>%
+#     reduce(left_join, by = c("session_esm", "date_cogtask", "task"))
+# 
+# 
+#   # Compute split-half reliability and store the result
+# 
+#   res[[i]] <-
+#     dat_splithalves %>%
+#     group_split(task) %>%
+#     map(split_half_sb) %>%
+#     unlist()
+# 
+#   print(str_c("Iteration ", i, " done"))
+# 
+# }
+# 
+# res <-
+#   res %>%
+#   reduce(bind_rows)
+# 
+# write_rds(res, "processed_data/cogtask_reliablity_splithalf_centered.RDS")
+```
+
+Results after centering
+
+```{r}
+read_rds("processed_data/cogtask_reliablity_splithalf_centered.RDS") %>% 
+  summary(res)
+```
+
+For comparison: reliability of non-centered cogtask scores
+
+```{r}
+read_rds("processed_data/cogtask_reliablity_splithalf_notcentered.RDS") %>% 
+  summary()
+```
+
+# Dataviz
+
+```{r}
+slices <- list()
+slices[[1]] <- 
+  dat_cogtask %>% 
+  group_by(session_esm, task, date_cogtask, trial_type) %>% 
+  slice_sample(prop = 0.5) %>% 
+  ungroup()
+slices[[2]] <- 
+  dat_cogtask %>% 
+  anti_join(slices[[1]])
+# Calculate task indices in both halves
+dat_splithalves <- 
+  map(slices, calc_task_indices) %>% 
+  reduce(left_join, by = c("session_esm", "date_cogtask", "task")) 
+```
+
+```{r}
+dat_splithalves %>% 
+  group_by(session_esm, task) %>% 
+  summarise(
+    cor_splithalf = cor(dprime.x, dprime.y),
+    n_sessions    = n()
+  ) %>% 
+  ggplot(aes(cor_splithalf)) + 
+  geom_histogram() +
+  facet_grid( task ~ . ) + 
+  xlab("Correlation between two random halves of the same session' dprime scores")
+```
+
+
+```{r, fig.width=15, fig.height=15}
+dat_splithalves %>%
+  filter(task == "go-nogo") %>% 
+  ggplot(aes(dprime.x, dprime.y)) + 
+  geom_jitter() + 
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  facet_wrap( ~session_esm)+ 
+  theme(
+    strip.background = element_blank(),
+    strip.text.x     = element_blank(),
+    plot.title       = element_text(size = 20, hjust = 0.5)
+  ) + 
+  ggtitle("Within-person reliability of go-nogo d\'") + 
+  xlab("d\' for random half of a session") + ylab("d\' for the other half of the session")
+```
+
+```{r, fig.width=15, fig.height=15}
+dat_splithalves %>%
+  filter(task == "n-back-number") %>% 
+  ggplot(aes(dprime.x, dprime.y)) + 
+  geom_jitter() + 
+  geom_smooth(method = "lm", se = FALSE, color = "purple") + 
+  facet_wrap( ~session_esm)+ 
+  theme(
+    strip.background = element_blank(),
+    strip.text.x     = element_blank(),
+    plot.title       = element_text(size = 20, hjust = 0.5)
+  ) + 
+  ggtitle("Within-person reliability of n-back d\'") + 
+  xlab("d\' for random half of a session") + ylab("d\' for the other half of the session")
+```

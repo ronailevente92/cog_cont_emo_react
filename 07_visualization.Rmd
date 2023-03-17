@@ -1,0 +1,309 @@
+---
+title: "Visualization of the clmm models"
+output: html_document
+author: "Levente Rónai"
+---
+
+```{r, message = F, warning = F, include = FALSE}
+
+options(scipen = 999)
+
+### loading packages
+
+library(psych)
+library(tidyverse)
+library(dplyr)
+library(sjPlot)
+library(data.table)
+library(git2r)
+library(psycho)
+library(jpeg)
+library(patchwork)
+library(rcartocolor)
+library(ggplot2)
+library(ordinal)
+
+```
+
+```{r, include=F}
+
+# Color setup
+
+source("set_colors.R")
+
+```
+
+```{r, include=F}
+
+mod_clmm_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
+mod_clmm_sad_nback <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback.rds")
+mod_clmm_angry_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo.rds")
+mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback.rds")
+
+mod_clmm_calm_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_calm_gonogo.rds")
+mod_clmm_cheerful_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_gonogo.rds")
+mod_clmm_calm_nback <- readRDS("saved_models/ordinal_models/mod_clmm_calm_nback.rds")
+mod_clmm_cheerful_nback <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_nback.rds")
+
+```
+
+```{r}
+tab_model(mod_clmm_sad_gonogo, mod_clmm_sad_nback, mod_clmm_angry_gonogo, mod_clmm_angry_nback,
+          terms = c("gender [Male]", "age", "beep",
+                    "day", "event_unpleasantness_centered",
+                    "gonogo_dprime_centered", "event_unpleasantness_centered:gonogo_dprime_centered",
+                    "nback_dprime_centered", "event_unpleasantness_centered:nback_dprime_centered"))
+```
+
+```{r}
+tab_model(mod_clmm_cheerful_gonogo, mod_clmm_cheerful_nback, mod_clmm_calm_gonogo, mod_clmm_calm_nback,
+          terms = c("gender [Male]", "age", "beep",
+                    "day", "event_unpleasantness_centered",
+                    "gonogo_dprime_centered", "event_unpleasantness_centered:gonogo_dprime_centered",
+                    "nback_dprime_centered", "event_unpleasantness_centered:nback_dprime_centered"))
+```
+
+# prepare for ploting of coeficents
+
+```{r}
+
+exoddsints <- function(x) {
+   coefs <- x$coefficients
+  confints <- confint(x)
+  model_name <- deparse(substitute(x))
+  
+
+# Calculate the odds ratios and confidence intervals
+  odds.ratios <- exp(coefs)
+  odds.ratios.lower <- exp(confints[,1])
+  odds.ratios.upper <- exp(confints[,2])
+
+# Create a data frame with the odds ratios and confidence intervals
+  df <- 
+    data.frame(odds.ratio = odds.ratios,
+               lower = odds.ratios.lower,
+               upper = odds.ratios.upper,
+               model = substring(model_name, first = 10)
+) %>% 
+    t %>% 
+    as.data.frame() %>% 
+    select(contains("centered")) %>% 
+    t %>% 
+    as.data.frame() %>% 
+    add_rownames(var = "predictor") %>% 
+    mutate(predictor = 
+             ifelse(grepl(":", predictor),
+                    str_replace(predictor, ":", "_"),
+                    predictor)) %>%
+    select(model, predictor, everything()) %>% 
+    mutate(odds.ratio = as.numeric(odds.ratio),
+           lower = as.numeric(lower),
+           upper = as.numeric(upper))
+  
+}
+```
+
+
+```{r}
+
+plot_dat <- as.data.frame(rbind(exoddsints(mod_clmm_angry_nback),
+               exoddsints(mod_clmm_sad_nback),         
+               exoddsints(mod_clmm_angry_gonogo),      
+               exoddsints(mod_clmm_sad_gonogo),        
+               exoddsints(mod_clmm_cheerful_nback),    
+               exoddsints(mod_clmm_cheerful_gonogo),   
+               exoddsints(mod_clmm_calm_gonogo),       
+               exoddsints(mod_clmm_calm_nback)))
+
+```
+
+### main coefplot with main and interaction effects for ngative affective states and perceived distress
+
+```{r}
+level_order <- c('event_unpleasantness_centered_gonogo_dprime_centered',
+                 'gonogo_dprime_centered',
+                 'event_unpleasantness_centered_nback_dprime_centered',
+                 'nback_dprime_centered',
+                 "event_unpleasantness_centered")
+```
+
+
+```{r, warning=F}
+
+model_1_3 <- 
+  
+  ggplot(plot_dat %>% 
+           filter(model == "sad_gonogo" | model == "angry_gonogo"),
+         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+                size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
+
+  scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived stress",
+               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+  scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
+  labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
+  scale_color_manual(labels = c("Anger", "Sadness"),
+                     values = as.character(colors[["neg_affect"]]))
+
+model_2_4 <- 
+  
+  ggplot(plot_dat %>% 
+           filter(model == "sad_nback" | model == "angry_nback"),
+         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
+
+
+  scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived stress",
+               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+  scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
+  labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
+  scale_color_manual(labels = c("Anger", "Sadness"),
+                     values = as.character(colors[["neg_affect"]]))
+
+```
+
+
+```{r}
+model_5_7 <- 
+  
+  ggplot(plot_dat %>% 
+           filter(model == "cheerful_gonogo" | model == "calm_gonogo"),
+         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+                size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
+
+  scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived stress",
+               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+  scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
+  labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
+  scale_color_manual(labels = c("Calmness", "Cheerfulness"),
+                     values = as.character(colors[["pos_affect"]]))
+
+model_6_8 <- 
+  
+  ggplot(plot_dat %>% 
+           filter(model == "cheerful_nback" | model == "calm_nback"),
+         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+   geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
+    
+
+  scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived stress",
+               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+  scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
+  labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
+  scale_color_manual(labels = c("Calmness", "Cheerfulness"),
+                     values = as.character(colors[["pos_affect"]]))
+
+```
+
+
+```{r}
+
+# model_5_6 / model_7_8 +
+#   plot_annotation(tag_levels = "A") +
+#   plot_layout(guides = "collect")
+# 
+# 
+# model_1_2 / model_3_4 +
+#   plot_annotation(tag_levels = "A") +
+#   plot_layout(guides = "collect")
+
+
+(set_model <- 
+   model_1_3 + model_5_7 + model_2_4 + model_6_8 &
+   plot_layout(guides = 'collect') &
+#  plot_layout(widths = c(1, 1)) &
+  theme_light() +
+  theme(
+    legend.position = "bottom",
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 12)))
+
+#ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm", )
+
+```
+
+### Illustration of emotional reactivity
+
+```{r, fig.height=4, fig.width=4}
+# Generate data with different slopes but same intercept
+set.seed(1)
+x1 <- rnorm(50, mean = 0, sd = 1)
+y1 <- 0.5*x1 + rnorm(50, mean = 0, sd = 1)
+x2 <- rnorm(50, mean = 0, sd = 1)
+y2 <- 2*x2 + rnorm(50, mean = 0, sd = 1)
+
+# Fit linear model to data
+fit1 <- lm(y1 ~ x1)
+fit2 <- lm(y2 ~ x2)
+
+df1 <- data.frame(x1,y1)
+df2 <- data.frame(x2,y2)
+
+df1 <- 
+  df1 %>%
+  mutate(react = "1")
+
+df2 <- 
+  df2 %>%
+  rename("x1" = "x2", 
+         "y1" = "y2") %>% 
+  mutate(react = "2")
+
+df <- rbind(df1, df2)
+
+```
+
+
+```{r}
+#, fig.height=4, fig.width=6}
+
+
+ggplot(data = df, aes(x1, y1, color = react)) +
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "lm", size = 1.5, alpha = 1, se = F) +
+ # theme_void() +
+
+  theme(axis.line.y = element_line(arrow = grid::arrow(length = unit(0.3, "cm")), linewidth = 1),
+        axis.line.x = element_line(arrow = grid::arrow(length = unit(0.3, "cm")), linewidth = 1),
+        panel.background = element_rect(fill = "white"),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        ) +
+  labs(x = "Perceived stress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
+ scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))  
+
+```
+
+
+```{r}
+```
+

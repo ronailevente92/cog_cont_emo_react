@@ -1,0 +1,622 @@
+---
+title: "02_cogtask_cleaning"
+author: "Levente Rónai"
+output: html_document
+---
+
+# loading packages
+
+```{r, include=F, warning=F, message=F}
+
+library(corrplot)
+library(readxl)
+library(xts)
+library(psych)
+library(qgraph)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(lubridate)
+library(knitr)
+library(git2r)
+library(psycho)
+
+```
+
+# reading datasets
+
+```{r, warning=F, message=F}
+
+options("scipen" = 100, "digits" = 4)
+
+dat_nback   <- read.csv("raw_data/merged_file_nback.csv")
+
+dat_gonogo   <- read.csv("raw_data/merged_file_gonogo.csv")
+
+```
+
+# selection and renaming of relevant variables 
+
+(session id, type of stimuli [go/no-go], reaction time, type of cogtask, date of trial created, number of stimulus within one trial)
+
+```{r}
+
+
+dat_nback <- 
+  dat_nback %>% 
+  as_tibble() %>% 
+  select(session_esm = code,
+          trial_type = trialType,
+                  rt = nBackClick.time,
+                task = expName,
+        date_cogtask = date,
+             n_trial = trials.thisN)
+
+
+dat_gonogo <- 
+  dat_gonogo %>% 
+  as_tibble() %>% 
+  select(session_esm = code,
+          trial_type = trialType,
+                  rt = nBackClick.time,
+                task = expName,
+        date_cogtask = date,
+             n_trial = trials.thisN)
+
+
+# fit the two datasets together
+
+dat_cogtask <- 
+  dat_gonogo %>% 
+  rbind(dat_nback)
+
+```
+
+```{r}
+dat_cogtask %>% 
+  group_by(session_esm, date_cogtask, task) %>% 
+  count() %>% 
+  group_by(task) %>% 
+  summarise(
+     mean_number_of_trials = mean(n), 
+     sd_of_number_of_trials = sd(n)
+  )
+```
+
+# cleaning
+
+```{r}
+dat_cogtask <- 
+  
+  dat_cogtask %>% 
+  # clean the number of the stimuli (the range is between 0-59, every 60th is an NA row)
+  mutate(n_trial = n_trial + 1) %>% 
+  # (1-60, every 61st is an NA row)
+  filter(!is.na(n_trial)) %>% 
+  # clean rt - empty cells, empty brackets, or real rt values in brackets   
+  mutate(rt = ifelse(rt == "", NA_real_, as.character(rt)),
+         rt = ifelse(rt == "[]", NA_real_, as.character(rt)),
+         rt = str_sub(rt, 2, -2))
+
+```
+
+```{r}
+
+dat_cogtask %>% 
+  group_by(session_esm, date_cogtask, task) %>% 
+  count() %>% 
+  group_by(task) %>% 
+  summarise(
+     mean_number_of_trials = mean(n), 
+     sd_of_number_of_trials = sd(n)
+  )
+```
+
+# import and transform of test trial
+
+```{r, warning=F, message=F}
+# there are reaction times with multiple values in one cell
+
+dat_cogtask %>% 
+  arrange(rt) # %>% view()
+
+```
+
+
+```{r, warning=F, message=F}
+
+# test-trial made with two techniques of responding:  
+
+dat_test   <- read.csv("raw_data/test_trial.csv")
+
+  # in the first part, I have performed frequent "knocking" with my finger on the screen without stimulus-processing
+  # in the second part, I have held my finger permanently on the screen without raising it
+
+```
+
+
+```{r, message=F}
+
+dat_test <-
+  dat_test %>%
+  as_tibble() %>%
+  select(session_esm = code,
+          trial_type = trialType,
+                  rt = nBackClick.time,
+                task = expName,
+        date_cogtask = date,
+             n_trial = trials.thisN) # %>% view()
+
+
+# it seems obvious that bugged values in rts are due to random clicking/taping
+
+```
+
+# separate multiple rt values into multiple columns 
+
+```{r, message = F, warning = F}
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  
+  separate(rt, c("rt_1st_part", "rt_2nd_part", "rt_3rd_part"), sep = ",") %>% 
+  mutate_at(vars(rt_1st_part:rt_3rd_part),
+            .funs = list(num = ~ round(as.numeric(.), digits = 3))) %>%
+  select(session_esm, trial_type, contains("rt"), everything(), -rt_1st_part, -rt_2nd_part, -rt_3rd_part)
+
+```
+
+# check whether bugged responses do form a sequence and belong together or just random values   
+
+```{r}
+
+dat_cogtask %>% 
+  mutate(
+    test = 
+      ifelse(is.na(rt_3rd_part_num),
+             rt_1st_part_num < rt_2nd_part_num,
+             (rt_1st_part_num < rt_2nd_part_num) & (rt_2nd_part_num < rt_3rd_part_num))) %>%
+  select(test) %>% 
+  table()
+
+```
+
+# screen delayed, but not fake responses
+
+```{r}
+
+dat_cogtask <- 
+  
+  dat_cogtask %>% 
+  
+  # create lagged variables to identify late responses
+  
+  group_by(session_esm) %>% 
+  mutate(lagged_trial_type = lag(trial_type),
+         lagged_rt_1st_part_num = lag(rt_1st_part_num)) %>% 
+  ungroup() %>%
+
+  # screen for late responses 
+  
+  mutate(late = ifelse(
+                  lagged_trial_type == 1 &        # if the previous stim is go
+                  is.na(lagged_rt_1st_part_num) & # but the previous rt is missing  
+                  !is.na(rt_2nd_part_num) &       # if there is a second value of rt
+                  is.na(rt_3rd_part_num) &        # but there is no third value of rt    
+                  rt_1st_part_num < 0.2,          # if it is way too fast, it can be regarded as a late response
+                1,
+                0)
+         ) %>% 
+  
+  # subtract late responses from the second value of rt to get valid response times 
+    
+  mutate(rt_1st_part_num = ifelse(late == 1,
+                                  as.numeric(rt_2nd_part_num - rt_1st_part_num),
+                                  rt_1st_part_num),
+         rt_2nd_part_num = ifelse(late == 1,
+                                  NA,
+                                  rt_2nd_part_num)) %>% 
+  
+  # mark the remaining multiplied values as bugged
+
+  mutate(bugged = ifelse(!is.na(rt_2nd_part_num),
+                         TRUE,
+                         FALSE)) %>%
+  
+  select(-lagged_trial_type, -lagged_rt_1st_part_num, - late)
+
+```
+
+# rate of bugged trials per participant
+
+
+```{r, warning=F}
+
+# identify trials with higher than 50% bugged/normal response rate
+
+fake_session <-
+  dat_cogtask %>% 
+  filter(!is.na(rt_1st_part_num)) %>% # consider only responded trials
+  group_by(session_esm, date_cogtask) %>% # group by participant and session 
+  summarise(
+    n_bugged    = sum(bugged),
+    n_normal    = sum(!bugged),
+    rate        = n_bugged / n_normal, # ratio of bugged to normal responses 
+  ) %>% 
+  arrange(desc(n_bugged)) %>%
+
+
+  mutate(fake_session = ifelse(rate > 0.5, 
+                            1,
+                            0)) %>% 
+  ungroup() %>% 
+  select(session_esm, date_cogtask, fake_session, rate)
+
+
+```
+
+```{r}
+
+dat_cogtask <-
+  dat_cogtask %>%
+  left_join(fake_session, by = c("session_esm", "date_cogtask"))
+
+```
+
+# screening in 3 + 1 steps
+
+```{r}
+
+# Three steps
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+         
+  filter(
+    # 1st step: possible sessions that are completely fake (more than 50% bugged/normal response rate): 
+    fake_session == 0 &  
+      
+      # 2nd step: bugged (NOT delayed!) responses (two or more reaction time values for one stimuli)
+      bugged == FALSE &
+      
+      # 3rd step: unlikely quick responses
+      rt_1st_part_num > 0.2 | 
+      
+      # keep trials with no responses from non-fake sessions
+      (is.na(rt_1st_part_num) & fake_session == 0)) %>% 
+  
+  
+select(session_esm, task, trial_type, rt = rt_1st_part_num, date_cogtask, n_trial, fake_session, bugged)
+
+
+```
+
+```{r}
+
+# check the number of trials within sessions
+
+dat_cogtask %>% 
+  group_by(session_esm, date_cogtask, task) %>% 
+  count() %>% 
+  group_by(task) %>% 
+  summarise(
+    min_n_of_trials   = min(n),
+    max_n_of_trials   = max(n),
+    mean_n_of_trials  = mean(n), 
+    sd_of_n_of_trials = sd(n),
+    sum_n_of_trials   = sum(n)
+
+  )
+
+```
+
+
+```{r}
+
+# Extra screening step - filter trials without a response given (by this we also filter way too faked sessions, see summary below)   
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  group_by(session_esm, date_cogtask) %>% 
+  mutate(count_of_trial = n_distinct(n_trial),
+         mean_rt_trial = mean(rt, na.rm = T),
+         to_delete = ifelse(is.na(mean_rt_trial),
+                            1,
+                            0)
+         ) %>% 
+  ungroup()
+
+dat_cogtask$to_delete %>% table()
+
+# 5.6 % of the sample will be deleted
+
+```
+
+```{r}
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  filter(to_delete == 0) %>% 
+  select(-mean_rt_trial, -to_delete)
+
+```
+
+
+```{r}
+
+dat_cogtask %>% 
+  group_by(session_esm, date_cogtask, task) %>% 
+  count() %>% 
+  group_by(task) %>% 
+  summarise(
+    min_n_of_trials   = min(n),
+    max_n_of_trials   = max(n),
+    mean_n_of_trials  = mean(n), 
+    sd_of_n_of_trials = sd(n),
+    sum_n_of_trials   = sum(n)
+  )
+
+```
+
+
+# calculate and join of dprime scores
+
+```{r}
+
+# keep raw data before the computation of dprime scores
+
+write_csv(dat_cogtask, "processed_data/dat_cogtask_raw.csv")
+
+```
+
+
+```{r}
+
+dat_cogtask <-
+  dat_cogtask %>%
+  mutate(hit     = ifelse(trial_type == 1 & !is.na(rt),  # hits
+                      1,
+                      0),
+         fa      = ifelse(trial_type == 0 & !is.na(rt),  # false alarms
+                      1,
+                      0),
+         miss    = ifelse(trial_type == 1 & is.na(rt),   # misses
+                      1,
+                      0),
+         cr      = ifelse(trial_type == 0 & is.na(rt),   # correct rejections
+                      1,
+                      0),
+         corr_rt = ifelse(trial_type == 1,
+                      rt,
+                      NA)
+  ) %>%
+  
+  group_by(session_esm, date_cogtask) %>% 
+  summarise(
+    n_of_trials    = mean(count_of_trial),
+    task           = max(as.character(task)),
+    
+    corr_rt_median = median(corr_rt, na.rm = T),
+    
+    n_hit          = sum(hit),
+    n_fa           = sum(fa),
+    n_miss         = sum(miss),
+    n_cr           = sum(cr),
+    n_targets      = n_hit + n_miss,
+    n_distractors  = n_fa + n_cr)
+
+
+```
+
+```{r}
+
+dprime <- 
+  psycho::dprime(n_hit         = dat_cogtask$n_hit,
+                 n_fa          = dat_cogtask$n_fa,
+                 n_miss        = dat_cogtask$n_miss,
+                 n_cr          = dat_cogtask$n_cr,
+                 n_targets     = dat_cogtask$n_targets,
+                 n_distractors = dat_cogtask$n_distractors)
+
+```
+
+
+```{r}
+
+dat_cogtask <-
+  dat_cogtask %>%
+  cbind(dprime) %>% 
+  select(everything(), -c(n_hit:n_distractors), -c(aprime:c)) 
+
+```
+
+# convert timestamps to beeps
+
+```{r}
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  # keep original timestamp - will be used as a key to calculate within-session reliability
+  mutate(date_cogtask_orig = date_cogtask) %>% 
+
+  # convert the date/time of tasks to dates and beeps
+  
+  # split date_cogtask to date and hours/mins
+  separate(date_cogtask, c("date_cogtask", "time_cogtask"), sep = "_") %>%
+  group_by(time_cogtask) %>% 
+  mutate(time_cogtask = unlist(strsplit(time_cogtask, split = ".", fixed = T))[1],
+         time_cogtask = lubridate::hm(time_cogtask),
+         date_cogtask = as.Date(date_cogtask)) %>% 
+  ungroup() %>% 
+
+  # create beeps
+  
+  mutate(
+    
+    # initialize column with double (aka real number) NA values
+    beep         = NA_real_, 
+    
+    # convert time to minutes passed since midnight
+    hour         = lubridate::hour(time_cogtask),
+    minutes      = lubridate::minute(time_cogtask),
+    cog_mins     = (hour * 60 + minutes)
+  ) %>% 
+  
+  # calculate beep based on timestamp of the creation of the cogtask trial
+  mutate(
+    beep =     
+      case_when(
+        between(cog_mins, 420, 569)   ~ 1,    # beep around 08:00
+        between(cog_mins, 570, 689)   ~ 2,    # beep around 10:00
+        between(cog_mins, 690, 809)   ~ 3,    # beep around 12:00
+        between(cog_mins, 810, 929)   ~ 4,    # beep around 14:00
+        between(cog_mins, 930, 1049)  ~ 5,    # beep around 16:00
+        between(cog_mins, 1050, 1169) ~ 6,    # beep around 18:00
+        between(cog_mins, 1170, 1289) ~ 7,    # beep around 20:00
+        between(cog_mins, 1290, 1409) ~ 8)    # beep around 22:00
+  ) %>% 
+  arrange(session_esm)  %>% 
+  select(-cog_mins, -time_cogtask) %>%
+  distinct()
+
+```
+
+
+```{r}
+
+# there are some duplicated results within the same beep
+
+dat_cogtask %>%
+  group_by(session_esm, date_cogtask, task) %>%
+  mutate(dupli = ifelse(duplicated(beep) | duplicated(beep, fromLast = TRUE),
+                        1,
+                        NA)) %>%
+  filter(dupli == 1) # %>% view()
+
+# we keep the first results only from the duplicated ones
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  group_by(session_esm, date_cogtask, task) %>%
+  filter(!duplicated(beep))
+
+```
+
+# spread data regarding type of cogtask
+
+```{r, warning=F}
+
+dat_cogtask <-
+  dat_cogtask %>%
+  mutate(task = ifelse(task == "go-nogo",
+                       "gonogo",
+                       "nback")) %>% 
+  
+
+  nest(dprime, beta, corr_rt_median, minutes, .key = 'value_col') %>%
+  spread(key = task, value = value_col)  %>% 
+  unnest(gonogo, nback, .sep = '_')
+
+
+```
+# define days
+
+```{r}
+
+big_data <- read.csv("processed_data/big_data.csv")
+
+start_dates <- 
+  big_data %>% 
+  select(session_esm, start_date) %>% 
+  distinct()
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  left_join(start_dates, by = c("session_esm")) %>% 
+  group_by(session_esm) %>% 
+  mutate(day = as.numeric(date_cogtask - as.Date(start_date))) %>% 
+ # select(-start_date) %>% 
+  ungroup()
+
+```
+
+# further screening
+
+```{r}
+
+# filter sessions created before the offical start of the study (test sessions)
+
+dat_cogtask <- 
+  dat_cogtask %>% 
+  filter(date_cogtask > "2021-04-11")
+
+```
+
+# complete days and beeps per participants
+
+```{r}
+
+dat_cogtask <- 
+  dat_cogtask %>%
+  
+  # define sets of possible values for variables to complete 
+  mutate(
+    day  = factor(day, levels = 1:28),
+    beep = factor(beep, levels = 1:8)
+  ) %>% 
+  group_by(session_esm) %>% 
+  tidyr::complete(day, beep)
+
+```
+
+# fill nback and gonogo tasks into the same beep that are belonging together 
+
+```{r}
+dat_cogtask <- 
+  dat_cogtask %>% 
+  select(session_esm:date_cogtask, date_cogtask_orig, hour, gonogo_dprime, gonogo_corr_rt_median, gonogo_beta,
+         nback_dprime, nback_corr_rt_median, nback_beta, gonogo_minutes, nback_minutes) %>%
+  filter(!is.na(day)) %>% 
+  group_by(session_esm, day, beep) %>%
+  fill(c(gonogo_dprime:nback_beta, gonogo_minutes, nback_minutes), .direction = "updown") %>%
+  distinct() %>%
+  ungroup()
+
+```
+
+
+```{r}
+dat_cogtask <- 
+  dat_cogtask %>%   
+  # screen two beeps in which the two cogtasks have not occurred in the same hour due to an error in pavlovia/formr.
+  # this results the exclusion of olny two cases, no systematic screening is needed
+  
+  group_by(session_esm, day) %>%
+  mutate(filter_1 = ifelse(duplicated(beep) # 
+                           & session_esm == "ZXy6-W3UxKqK95cydAuqjBsgBVwC7vmWuKNH56mDPBmwEST1ypn4IgjuDubaNumm",
+                           1,
+                           0),
+         filter_2 = ifelse(duplicated(beep, fromLast = TRUE) 
+                           & session_esm == "c3QV9DlxJpiAScLV2XXT729aBSTXbcP16lBVL9vJgbmwTgteduWI6EpekmuhyGlP",
+                           1,
+                           0),
+         to_discard = ifelse(((filter_2 == 0 & filter_1 == 1)
+                              | (filter_2 == 1 & filter_1 == 0)),
+                             1,
+                             0
+                             )) %>% 
+  filter(to_discard == 0) %>% 
+  ungroup() %>% 
+  select(-filter_1, -filter_2, -to_discard)
+
+```
+
+# write data
+
+```{r}
+
+write_csv(dat_cogtask,"processed_data/dat_cogtask.csv")
+
+```
+
