@@ -141,10 +141,10 @@ model_1_3 <-
                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
   labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
@@ -162,10 +162,10 @@ model_2_4 <-
 
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
   labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
@@ -187,10 +187,10 @@ model_5_7 <-
                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
   labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
@@ -208,10 +208,10 @@ model_6_8 <-
     
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
   labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
@@ -221,7 +221,7 @@ model_6_8 <-
 ```
 
 
-```{r}
+```{r, fig.height=6, fig.width=10}
 
 # model_5_6 / model_7_8 +
 #   plot_annotation(tag_levels = "A") +
@@ -298,7 +298,7 @@ ggplot(data = df, aes(x1, y1, color = react)) +
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
         ) +
-  labs(x = "Perceived stress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
+  labs(x = "Perceived distress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
  scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))  
 
 ```
