@@ -141,10 +141,10 @@ model_1_3 <-
                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
   labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
@@ -162,10 +162,10 @@ model_2_4 <-
 
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
   labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
@@ -187,10 +187,10 @@ model_5_7 <-
                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
   labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
@@ -208,10 +208,10 @@ model_6_8 <-
     
 
   scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back",
+    labels = c(nback_dprime_centered = "2-back d'",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived stress",
-               gonogo_dprime_centered = "Go/No-Go",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
   labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
@@ -221,7 +221,7 @@ model_6_8 <-
 ```
 
 
-```{r}
+```{r, fig.height=6, fig.width=10}
 
 # model_5_6 / model_7_8 +
 #   plot_annotation(tag_levels = "A") +
@@ -240,12 +240,12 @@ model_6_8 <-
   theme_light() +
   theme(
     legend.position = "bottom",
-    axis.title = element_text(size = 12),
-    axis.text = element_text(size = 12),
-    legend.title = element_text(size = 12),
-    legend.text = element_text(size = 12)))
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14)))
 
-#ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm", )
+# ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm", )
 
 ```
 
@@ -281,13 +281,12 @@ df <- rbind(df1, df2)
 ```
 
 
-```{r}
-#, fig.height=4, fig.width=6}
+```{r, fig.height=4, fig.width=6}
 
 
 ggplot(data = df, aes(x1, y1, color = react)) +
-  geom_point(alpha = 0.5) + 
-  geom_smooth(method = "lm", size = 1.5, alpha = 1, se = F) +
+  geom_point(alpha = 0.5, size = 3) + 
+  geom_smooth(method = "lm", size = 3, alpha = 1, se = F) +
  # theme_void() +
 
   theme(axis.line.y = element_line(arrow = grid::arrow(length = unit(0.3, "cm")), linewidth = 1),
@@ -297,9 +296,14 @@ ggplot(data = df, aes(x1, y1, color = react)) +
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        ) +
-  labs(x = "Perceived stress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
- scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))  
+        axis.title = element_text(size = 30),
+        legend.title = element_text(size = 30),
+        legend.text = element_text(size = 30)) +
+  labs(x = "Perceived distress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
+ scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))
+
+# ggsave("emo_react.jpeg", device = "jpeg", width = 30, height = 20, units = "cm", )
+
 
 ```
 
