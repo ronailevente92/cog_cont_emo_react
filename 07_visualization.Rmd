@@ -296,6 +296,7 @@ ggplot(data = df, aes(x1, y1, color = react)) +
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
+<<<<<<< HEAD
         axis.title = element_text(size = 30),
         legend.title = element_text(size = 30),
         legend.text = element_text(size = 30)) +
@@ -304,6 +305,11 @@ ggplot(data = df, aes(x1, y1, color = react)) +
 
 # ggsave("emo_react.jpeg", device = "jpeg", width = 30, height = 20, units = "cm", )
 
+=======
+        ) +
+  labs(x = "Perceived distress", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
+ scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))  
+>>>>>>> b76b16ed2dfe777ebca8eb3a7ee988a362cd80fc
 
 ```
 
