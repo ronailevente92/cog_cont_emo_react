@@ -132,19 +132,45 @@ level_order <- c('event_unpleasantness_centered_gonogo_dprime_centered',
                  'nback_dprime_centered',
                  "event_unpleasantness_centered")
 ```
-
+## plot A
+### coloured version
 
 ```{r, warning=F}
+# model_A <- 
+#   
+#   ggplot(plot_dat %>% 
+#            filter(model == "sad_gonogo" | model == "angry_gonogo"),
+#          aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+#   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+#   geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
+#   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+#                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
+# 
+#   scale_y_discrete(
+#     labels = c(nback_dprime_centered = "2-back",
+#                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+#                event_unpleasantness_centered = "Perceived stress",
+#                gonogo_dprime_centered = "Go/No-Go",
+#                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+#   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
+#   labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
+#   scale_color_manual(labels = c("Anger", "Sadness"),
+#                      values = as.character(colors[["neg_affect"]]))
+```
 
-model_1_3 <- 
-  
-  ggplot(plot_dat %>% 
+### black & white version
+
+```{r, warning=F}
+model_A <-
+
+  ggplot(plot_dat %>%
            filter(model == "sad_gonogo" | model == "angry_gonogo"),
-         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+         aes(x = odds.ratio, y = factor(predictor, level = level_order), shape = model)) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
-  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
-                size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
+                size = 1, alpha = 1, position = position_dodge(-0.5)) +
+  geom_point(aes(shape = model), fill = "white",  size = 3, alpha = 1, position = position_dodge(-0.5)) +
+
 
   scale_y_discrete(
     labels = c(nback_dprime_centered = "2-back d'",
@@ -152,19 +178,48 @@ model_1_3 <-
                event_unpleasantness_centered = "Perceived distress",
                gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
-  scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
-  labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
-  scale_color_manual(labels = c("Anger", "Sadness"),
-                     values = as.character(colors[["neg_affect"]]))
+  scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
+  labs(x = "", y = "", title = "Negative affect ~ Response inhibition", shape = "Predicting:") +
+  scale_shape_manual(labels = c("Anger", "Sadness"), values = c(21, 15))
+ 
+```
 
-model_2_4 <- 
-  
-  ggplot(plot_dat %>% 
-           filter(model == "sad_nback" | model == "angry_nback"),
-         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+## plot B
+### coloured version
+
+```{r, warning=F}
+# model_B <- 
+#   
+#   ggplot(plot_dat %>% 
+#            filter(model == "sad_nback" | model == "angry_nback"),
+#          aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+#   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+#   geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
+#   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
+# 
+# 
+#   scale_y_discrete(
+#     labels = c(nback_dprime_centered = "2-back",
+#                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+#                event_unpleasantness_centered = "Perceived stress",
+#                gonogo_dprime_centered = "Go/No-Go",
+#                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+#   scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
+#   labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
+#   scale_color_manual(labels = c("Anger", "Sadness"),
+#                      values = as.character(colors[["neg_affect"]]))
+```
+
+### black & white version
+
+```{r, warning=F}
+model_B <-
+   ggplot(plot_dat %>% filter(model == "sad_nback" | model == "angry_nback"),
+          aes(x = odds.ratio, y = factor(predictor, level = level_order), shape = model)) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
-  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
-  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+                size = 1, alpha = 1, position = position_dodge(-0.5)) +
+  geom_point(aes(shape = model), fill = "white",  size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +
 
 
   scale_y_discrete(
@@ -173,85 +228,126 @@ model_2_4 <-
                event_unpleasantness_centered = "Perceived distress",
                gonogo_dprime_centered = "Go/No-Go d'",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
-  scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) + 
-  labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
-  scale_color_manual(labels = c("Anger", "Sadness"),
-                     values = as.character(colors[["neg_affect"]]))
+  scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
+  labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", shape = "Predicting:") +
+  scale_shape_manual(labels = c("Anger", "Sadness"), values = c(21, 15))
 
 ```
 
+## plot C
+### coloured version
 
 ```{r}
-model_5_7 <- 
-  
-  ggplot(plot_dat %>% 
-           filter(model == "cheerful_gonogo" | model == "calm_gonogo"),
-         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
-  geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
-  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
-                size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
-
-  scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back d'",
-               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived distress",
-               gonogo_dprime_centered = "Go/No-Go d'",
-               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
-  scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
-  labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
-  scale_color_manual(labels = c("Calmness", "Cheerfulness"),
-                     values = as.character(colors[["pos_affect"]]))
-
-model_6_8 <- 
-  
-  ggplot(plot_dat %>% 
-           filter(model == "cheerful_nback" | model == "calm_nback"),
-         aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
-   geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
-  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
-    
-
-  scale_y_discrete(
-    labels = c(nback_dprime_centered = "2-back d'",
-               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Perceived distress",
-               gonogo_dprime_centered = "Go/No-Go d'",
-               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
-  scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
-  labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
-  scale_color_manual(labels = c("Calmness", "Cheerfulness"),
-                     values = as.character(colors[["pos_affect"]]))
-
+# model_C <- 
+#   
+#   ggplot(plot_dat %>% 
+#            filter(model == "cheerful_gonogo" | model == "calm_gonogo"),
+#          aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+#   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+#   geom_point(size = 3, alpha = 1, position = position_dodge(-0.5)) +  
+#   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+#                 size = 1, alpha = 0.4, position = position_dodge(-0.5)) +
+# 
+#   scale_y_discrete(
+#     labels = c(nback_dprime_centered = "2-back",
+#                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+#                event_unpleasantness_centered = "Perceived stress",
+#                gonogo_dprime_centered = "Go/No-Go",
+#                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+#   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
+#   labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
+#   scale_color_manual(labels = c("Calmness", "Cheerfulness"),
+#                      values = as.character(colors[["pos_affect"]]))
 ```
 
+### black & white version
+
+```{r}
+model_C <-
+    ggplot(plot_dat %>%
+           filter(model == "cheerful_gonogo" | model == "calm_gonogo"),
+          aes(x = odds.ratio, y = factor(predictor, level = level_order), shape = model)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+  geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+                size = 1, alpha = 1, position = position_dodge(-0.5)) +
+  geom_point(aes(shape = model), fill = "white",  size = 3, alpha = 1, position = position_dodge(-0.5)) +
+
+
+  scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back d'",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
+   labs(x = "", y = "", title = "Positive affect ~ Response inhibition", shape = "Predicting:") +
+   scale_shape_manual(labels = c("Calmness", "Cheerfulness"), values = c(24, 19))
+```
+
+## plot D
+### coloured version
+
+```{r}
+# model_D <- 
+#   
+#   ggplot(plot_dat %>% 
+#            filter(model == "cheerful_nback" | model == "calm_nback"),
+#          aes(x = odds.ratio, y = factor(predictor, level = level_order), color = model)) +
+#   geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+#    geom_point(size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +  
+#   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0, size = 1, alpha = 0.4, position = position_dodge(-0.5), show.legend = FALSE) + 
+#     
+# 
+#   scale_y_discrete(
+#     labels = c(nback_dprime_centered = "2-back",
+#                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+#                event_unpleasantness_centered = "Perceived stress",
+#                gonogo_dprime_centered = "Go/No-Go",
+#                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+#   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) + 
+#   labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
+#   scale_color_manual(labels = c("Calmness", "Cheerfulness"),
+#                      values = as.character(colors[["pos_affect"]]))
+```
+
+### black & white version
+
+```{r}
+model_D <-
+    ggplot(plot_dat %>%
+           filter(model == "cheerful_nback" | model == "calm_nback"),
+          aes(x = odds.ratio, y = factor(predictor, level = level_order), shape = model)) +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "black", size = 1, alpha = 0.2) +
+    geom_errorbar(aes(xmin = lower, xmax = upper), width = 0,
+                size = 1, alpha = 1, position = position_dodge(-0.5)) +
+    geom_point(aes(shape = model), fill = "white",  size = 3, alpha = 1, position = position_dodge(-0.5), show.legend = FALSE) +
+
+    scale_y_discrete(
+    labels = c(nback_dprime_centered = "2-back d'",
+               event_unpleasantness_centered_nback_dprime_centered = "Interaction",
+               event_unpleasantness_centered = "Perceived distress",
+               gonogo_dprime_centered = "Go/No-Go d'",
+               event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
+  scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
+  labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", shape = "Predicting:") +
+  scale_shape_manual(labels = c("Calmness", "Cheerfulness"), values = c(24, 19))
+```
 
 ```{r, fig.height=6, fig.width=10}
 
-# model_5_6 / model_7_8 +
-#   plot_annotation(tag_levels = "A") +
-#   plot_layout(guides = "collect")
-# 
-# 
-# model_1_2 / model_3_4 +
-#   plot_annotation(tag_levels = "A") +
-#   plot_layout(guides = "collect")
-
-
 (set_model <- 
-   model_1_3 + model_5_7 + model_2_4 + model_6_8 &
+   model_A + model_C + model_B + model_D &
    plot_layout(guides = 'collect') &
-#  plot_layout(widths = c(1, 1)) &
   theme_light() +
   theme(
     legend.position = "bottom",
-    axis.title = element_text(size = 16),
+    axis.title = element_text(size = 14),
     axis.text = element_text(size = 14),
-    legend.title = element_text(size = 16),
+    legend.title = element_text(size = 14),
     legend.text = element_text(size = 14)))
 
-# ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm", )
+# ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm")
+# ggsave("main_plot_black.jpeg", device = "jpeg", width = 40, height = 20, units = "cm")
 
 ```
 
@@ -288,7 +384,6 @@ df <- rbind(df1, df2)
 
 
 ```{r, fig.height=4, fig.width=6}
-
 
 ggplot(data = df, aes(x1, y1, color = react)) +
   geom_point(alpha = 0.5, size = 3) + 
