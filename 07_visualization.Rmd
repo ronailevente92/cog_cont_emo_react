@@ -333,7 +333,7 @@ model_D <-
   scale_shape_manual(labels = c("Calmness", "Cheerfulness"), values = c(24, 19))
 ```
 
-```{r, fig.height=6, fig.width=10}
+```{r, fig.height=6, fig.width=10, warning = F}
 
 (set_model <- 
    model_A + model_C + model_B + model_D &
