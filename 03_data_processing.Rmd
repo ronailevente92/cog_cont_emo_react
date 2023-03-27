@@ -111,6 +111,8 @@ big_data <-
 
 ### selection of relevant variables and filter incomplete three-day blocks (marked with NA) and re-naming of main dataset
 
+# gender == sex
+
 dat_cleaned <-
   big_data %>%
   select(id_esm, session_esm, age, gender, edu, city, start_date, date_esm, date_cogtask,
@@ -132,7 +134,9 @@ dat_cleaned %>% select(id_esm) %>% summarise(n_distinct(id_esm))
 
 ```{r}
 
-### making gender variable to be considered as a factor  
+### making gender variable to be considered as a factor
+# gender == sex
+
 
 dat_cleaned  <-  
   dat_cleaned %>%

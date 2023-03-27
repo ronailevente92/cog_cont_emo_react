@@ -48,6 +48,9 @@ mod_clmm_cheerful_nback <- readRDS("saved_models/ordinal_models/mod_clmm_cheerfu
 ```
 
 ```{r}
+
+# gender == sex
+
 tab_model(mod_clmm_sad_gonogo, mod_clmm_sad_nback, mod_clmm_angry_gonogo, mod_clmm_angry_nback,
           terms = c("gender [Male]", "age", "beep",
                     "day", "event_unpleasantness_centered",
@@ -56,6 +59,9 @@ tab_model(mod_clmm_sad_gonogo, mod_clmm_sad_nback, mod_clmm_angry_gonogo, mod_cl
 ```
 
 ```{r}
+
+# gender == sex
+
 tab_model(mod_clmm_cheerful_gonogo, mod_clmm_cheerful_nback, mod_clmm_calm_gonogo, mod_clmm_calm_nback,
           terms = c("gender [Male]", "age", "beep",
                     "day", "event_unpleasantness_centered",

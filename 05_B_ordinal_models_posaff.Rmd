@@ -348,5 +348,9 @@ AIC(
 ```
 
 ```{r}
-tab_model(mod_clmm_cheerful_gonogo, mod_clmm_cheerful_nback, mod_clmm_calm_gonogo, mod_clmm_calm_nback)
+
+# gender == sex
+
+tab_model(mod_clmm_cheerful_gonogo, mod_clmm_cheerful_nback, 
+          mod_clmm_calm_gonogo, mod_clmm_calm_nback)
 ```

@@ -329,7 +329,7 @@ mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nbac
 
 #### Assumption check
 
-Adding age and sex because otherwise there is a severe convergence issue with a max\|gradient\~155.
+Adding age and gender because otherwise there is a severe convergence issue with a max\|gradient\~155.
 Adding these covariates makes the max\|gradient value acceptable.
 
 ```{r}
@@ -391,6 +391,9 @@ mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nbac
 
 
 ```{r}
+
+# gender == sex
+
 tab_model(
   mod_clmm_sad_gonogo, mod_clmm_sad_nback,
   mod_clmm_angry_gonogo, mod_clmm_angry_nback
