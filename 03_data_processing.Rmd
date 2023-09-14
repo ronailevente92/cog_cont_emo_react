@@ -19,6 +19,8 @@ library(lubridate)
 library(git2r)
 library(naniar)
 library(hms)
+library(lavaan)
+library(semTools)
 
 ```
 
@@ -117,7 +119,7 @@ dat_cleaned <-
   big_data %>%
   select(id_esm, session_esm, age, gender, edu, city, start_date, date_esm, date_cogtask,
          day, beep, event_pleasantness, worried, sad:active,
-         contains(c("gonogo", "nback", "mzq_", "mss_", "cerq_")), -contains(c("minutes")),
+         contains(c("gonogo", "nback", "cerq_")), -contains(c("minutes")),
          three_day_block, contains(c("diary", "stressor"))) 
 
 ```
@@ -226,6 +228,64 @@ dat_cleaned <-
 
 ```
 
+# CFA for rumination
+
+```{r}
+
+dat_cfa_rum <- 
+  dat_cleaned %>% 
+  dplyr::select(id_esm, cerq_1, cerq_9, cerq_19, cerq_29) %>%
+  distinct()
+  
+cfa_rum <- 'trait_rumination =~ cerq_1 + cerq_9 + cerq_19 + cerq_29'
+
+fit_rumi <- cfa(model = cfa_rum, data = dat_cfa_rum, std.lv = TRUE, estimator = "ML")
+
+```
+
+```{r}
+fitMeasures(fit_rumi, c("chisq", "df", "pvalue", "cfi", "tli",
+                   "rmsea", "srmr"))
+```
+
+```{r}
+summary(fit_rumi, fit.measures = TRUE, standardize = TRUE)
+```
+
+```{r}
+modificationindices(fit_rumi) %>%
+  select("lhs", "op", "rhs", "mi") %>%
+ # filter(mi > 11) %>%
+  arrange(desc(mi)) %>%
+  head(n = 10) %>%
+  print()
+```
+
+
+```{r}
+# reliability of rumination factor (omega)
+(reliability(fit_rumi))
+
+```
+```{r}
+# factor loadings
+inspect(fit_rumi,what="std")$lambda
+```
+
+```{r}
+# add rumination between-subject factor scores to the main dataset
+scores_cfa_rumination <-
+  dat_cfa_rum %>%
+  distinct() %>%
+  cbind(lavPredict(fit_rumi, newdata = dat_cfa_rum[1:5])) %>%
+  select(id_esm, trait_rumination)
+
+dat_cleaned <-
+  dat_cleaned %>%
+  left_join(scores_cfa_rumination, by = c("id_esm"))
+
+```
+
 # 5: creation of final dataset for modeling
 
 ```{r}
@@ -251,13 +311,7 @@ model_dat <-
          sad, calm, cheerful, angry,
          
 
-         contains(c("_mean_grand_centered")), cerq_self_blame, cerq_acceptance, cerq_rumination,
-         cerq_attention, cerq_plan, cerq_reappraisal = cerq_reapprasial,
-         cerq_new_perspective, cerq_catastrophize, cerq_blame_others,
-         
-         mss_neg, mss_pos, mss_dis, mzq_refuse_reflection,
-         mzq_emotional_awareness, mzq_psychic_equivalence,
-         mzq_regulate_affect, mzq_sum,
+         contains(c("_mean_grand_centered")), trait_rumination,
 
          ) %>%
   distinct()
@@ -281,14 +335,14 @@ model_dat %>%
 model_dat %>%
   filter_at(vars(sad, angry, cheerful, calm, 
                  event_unpleasantness_centered,
-                 nback_dprime_centered), all_vars(!is.na(.))) %>%
+                 nback_dprime_centered, trait_rumination), all_vars(!is.na(.))) %>%
   distinct() %>% 
   write.csv("processed_data/model_dat_filtered_nback.csv", row.names = F)
 
 model_dat %>%
   filter_at(vars(sad, angry, cheerful, calm, 
                  event_unpleasantness_centered,
-                 gonogo_dprime_centered), all_vars(!is.na(.))) %>%
+                 gonogo_dprime_centered, trait_rumination), all_vars(!is.na(.))) %>%
   distinct() %>% 
   write.csv("processed_data/model_dat_filtered_gonogo.csv", row.names = F)
 
