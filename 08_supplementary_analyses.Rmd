@@ -1,0 +1,197 @@
+---
+title: "08_supplementary_analyses"
+output: html_document
+author: "Levente Rónai"
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+# Setup
+
+## Load packages
+
+```{r}
+
+options(scipen = 999)
+
+# Import and tidy data
+library(tidyverse)
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(lavaan)
+library(git2r)
+
+# Modelling
+# Ordinal regression
+library(ordinal)
+# Model visualisation, diagnostics and summary
+library(sjPlot)
+```
+
+```{r}
+# compare the installed versions of R packages - the original analyses were conducted with R (v4.2.1; 2022) in RStudio (v2022.07.1; 2022). For the cumulative link mixed models, the ordinal package was used (v2022.11-16; Christensen, 2022)
+sessionInfo()
+```
+
+## Load and prepare data
+
+```{r}
+model_dat <- read.csv("processed_data/model_dat.csv")
+```
+
+# Convert data on emotional states into ordinal factors
+
+```{r}
+model_ord_dat <-
+  model_dat %>% 
+  mutate(
+    across(c(angry, sad, cheerful, calm), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))
+  )
+```
+
+# Cumulative Logit Link Mixed Models
+
+[A tutorial](https://user2021.r-project.org/participation/technical_notes/t186/technote/) [A textbook/tutorial](https://rcompanion.org/handbook/G_01.html)
+
+[A paper by Hedeker 2015](https://link.springer.com/article/10.1007/s11121-014-0495-x)
+
+## Assumptions
+
+### Proportional Odds Assumption
+
+[Proportional Odds Assumption - youtube](https://www.youtube.com/watch?v=iPDwMrw2D30&t=2s)
+
+Hedeker 2015:
+
+> **Proportional Odds Assumption**
+>
+> Since the slopes β do not carry the c subscript, they do not vary across categories.
+> That is, the effect of each covariate in x is assumed to be the same across the C-1 cumulative logits.
+> For example, if Y has three categories, it is as if one ran two binary logistic regressions (with dichotomized outcomes 1 vs 2 and 3, and 1 and 2 vs 3) and assumed that the covariate effects were the same for these two analyses.
+> McCullagh (1980) calls this assumption the *proportional odds assumption*.
+
+### Testing the prop odds assumption by comparing the fit to a model that relaxes this assumption: the multinomial model
+
+The multinomial model does not rely on the prop odds assumption.
+Here, the outcome categories are not ordered: they are nominal.
+So for each contrast will have an intercept and a slope as well.
+The multinomial model is always more precise than the prop odds model, as it makes fewer assumptions.
+The cumulative link model has fewer parameters and hence it is more parsimonious.
+You can fit both multinomial and cumulative link to the same data and compare the predicted probabilities.
+If the probabilites are close that suggests that the ordinal model is doing okay - how close is close enough?
+
+[Testing the Proportional Odds Assumption](https://www.rdocumentation.org/packages/ordinal/versions/2019.12-10/topics/nominal_test) - does not work for clmm but see [Function to check proportional odds ratio assumption for clmm object #12](https://github.com/runehaubo/ordinal/issues/12)
+
+[AIC vs BIC \@stackexchange](https://stats.stackexchange.com/questions/577/is-there-any-reason-to-prefer-the-aic-or-bic-over-the-other)
+
+### extending our models with trait-level rumination 
+
+```{r}
+
+# mod_clmm_sad_gonogo_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# mod_clmm_sad_nback_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~ age + gender + beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# 
+# mod_clmm_angry_gonogo_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# mod_clmm_angry_nback_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~ age + gender + beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+
+# saveRDS(mod_clmm_sad_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi.rds")
+# saveRDS(mod_clmm_angry_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi.rds")
+# saveRDS(mod_clmm_sad_nback_rumi,"saved_models/ordinal_models/mod_clmm_sad_nback_rumi.rds")
+# saveRDS(mod_clmm_angry_nback_rumi,"saved_models/ordinal_models/mod_clmm_angry_nback_rumi.rds")
+
+mod_clmm_sad_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi.rds")
+mod_clmm_angry_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi.rds")
+mod_clmm_sad_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback_rumi.rds")
+mod_clmm_angry_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback_rumi.rds")
+
+tab_model(mod_clmm_sad_gonogo_rumi, mod_clmm_sad_nback_rumi,
+          mod_clmm_angry_gonogo_rumi, mod_clmm_angry_nback_rumi)
+```
+
+
+```{r}
+
+# mod_clmm_cheerful_gonogo_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     cheerful ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
+#       (gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# mod_clmm_cheerful_nback_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     cheerful ~ age + gender + # day + beep +
+#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered | id_esm ),
+#     data = .
+#   )
+# 
+# mod_clmm_calm_gonogo_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     calm ~ age + gender + beep + day +
+#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# mod_clmm_calm_nback_rumi <-
+#   model_ord_dat %>%
+#   clmm(
+#     calm ~ age + gender + beep + day +
+#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
+#       (event_unpleasantness_centered + nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+
+# saveRDS(mod_clmm_cheerful_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_cheerful_gonogo_rumi.rds")
+# saveRDS(mod_clmm_calm_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_calm_gonogo_rumi.rds")
+# saveRDS(mod_clmm_cheerful_nback_rumi,"saved_models/ordinal_models/mod_clmm_cheerful_nback_rumi.rds")
+# saveRDS(mod_clmm_calm_nback_rumi,"saved_models/ordinal_models/mod_clmm_calm_nback_rumi.rds")
+
+mod_clmm_cheerful_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_gonogo_rumi.rds")
+mod_clmm_calm_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_calm_gonogo_rumi.rds")
+mod_clmm_cheerful_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_nback_rumi.rds")
+mod_clmm_calm_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_calm_nback_rumi.rds")
+
+tab_model(mod_clmm_cheerful_gonogo_rumi, mod_clmm_cheerful_nback_rumi,
+          mod_clmm_calm_gonogo_rumi, mod_clmm_calm_nback_rumi)
+
+```
+

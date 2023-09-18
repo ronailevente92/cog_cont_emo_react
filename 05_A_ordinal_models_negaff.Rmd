@@ -96,13 +96,15 @@ If the probabilites are close that suggests that the ordinal model is doing okay
 #   model_ord_dat %>%
 #   clmm(
 #     sad ~ age + gender + beep + day +
-#       event_unpleasantness_centered * gonogo_dprime_centered +
+#       event_unpleasantness_centered * gonogo_dprime_centered + 
 #       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
 #     data = .
 #   )
-# 
+
 # saveRDS(mod_clmm_sad_gonogo,"saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
 mod_clmm_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
+
+tab_model(mod_clmm_sad_gonogo)
 
 ```
 
