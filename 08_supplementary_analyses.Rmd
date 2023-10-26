@@ -15,20 +15,19 @@ editor_options:
 
 options(scipen = 999)
 
-# Import and tidy data
 library(tidyverse)
 library(dplyr)
 library(lme4)
 library(lmerTest)
 library(lavaan)
 library(git2r)
-
-# Modelling
-# Ordinal regression
+library(performance)
+library(patchwork)
+library(rcartocolor)
 library(ordinal)
-# Model visualisation, diagnostics and summary
 library(sjPlot)
 ```
+
 
 ```{r}
 # compare the installed versions of R packages - the original analyses were conducted with R (v4.2.1; 2022) in RStudio (v2022.07.1; 2022). For the cumulative link mixed models, the ordinal package was used (v2022.11-16; Christensen, 2022)
@@ -50,6 +49,7 @@ model_ord_dat <-
     across(c(angry, sad, cheerful, calm), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))
   )
 ```
+
 
 # Cumulative Logit Link Mixed Models
 
@@ -86,112 +86,444 @@ If the probabilites are close that suggests that the ordinal model is doing okay
 
 [AIC vs BIC \@stackexchange](https://stats.stackexchange.com/questions/577/is-there-any-reason-to-prefer-the-aic-or-bic-over-the-other)
 
-### extending our models with trait-level rumination 
+# descriptive statistics of trait-rumination and baseline depression
 
 ```{r}
+model_dat_desc <- 
+  model_dat %>%
+  select(id_esm, day, beep, gonogo_dprime, nback_dprime, trait_rumination, trait_depr,
+         cerq_1, cerq_9, cerq_19, cerq_29,
+         
+         SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+         SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+         SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+         SCL_90_depr_pre_13)
 
-# mod_clmm_sad_gonogo_rumi <-
-#   model_ord_dat %>%
-#   clmm(
-#     sad ~ age + gender + beep + day +
-#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
-#     data = .
-#   )
-# 
-# mod_clmm_sad_nback_rumi <-
-#   model_ord_dat %>%
-#   clmm(
-#     sad ~ age + gender + beep + day +
-#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
-#     data = .
-#   )
-# 
-# 
-# mod_clmm_angry_gonogo_rumi <-
-#   model_ord_dat %>%
-#   clmm(
-#     angry ~ age + gender + beep + day +
-#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
-#     data = .
-#   )
-# 
-# mod_clmm_angry_nback_rumi <-
-#   model_ord_dat %>%
-#   clmm(
-#     angry ~ age + gender + beep + day +
-#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered * nback_dprime_centered | id_esm ),
-#     data = .
-#   )
+  
+# for gonogo
+model_dat_desc_go <-
+  model_dat_desc %>% 
+  filter(!is.na(gonogo_dprime)) %>% 
+  select(id_esm,
+         cerq_1, cerq_9, cerq_19, cerq_29,
+         
+         SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+         SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+         SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+         SCL_90_depr_pre_13) %>% 
+  
+  distinct() %>% 
+  
+  group_by(id_esm) %>% 
+  summarise(sum_rumi_id = sum(cerq_1, cerq_9, cerq_19, cerq_29),
+            sum_depr_id = sum(SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+                           SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+                           SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+                           SCL_90_depr_pre_13)) %>% 
+  ungroup()
 
-# saveRDS(mod_clmm_sad_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi.rds")
-# saveRDS(mod_clmm_angry_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi.rds")
-# saveRDS(mod_clmm_sad_nback_rumi,"saved_models/ordinal_models/mod_clmm_sad_nback_rumi.rds")
-# saveRDS(mod_clmm_angry_nback_rumi,"saved_models/ordinal_models/mod_clmm_angry_nback_rumi.rds")
 
-mod_clmm_sad_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi.rds")
-mod_clmm_angry_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi.rds")
-mod_clmm_sad_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback_rumi.rds")
-mod_clmm_angry_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback_rumi.rds")
-
-tab_model(mod_clmm_sad_gonogo_rumi, mod_clmm_sad_nback_rumi,
-          mod_clmm_angry_gonogo_rumi, mod_clmm_angry_nback_rumi)
+# for nback
+model_dat_desc_nback <-
+  model_dat_desc %>% 
+  filter(!is.na(nback_dprime)) %>% 
+  select(id_esm,
+         cerq_1, cerq_9, cerq_19, cerq_29,
+         
+         SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+         SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+         SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+         SCL_90_depr_pre_13) %>% 
+  
+  distinct() %>% 
+  
+  group_by(id_esm) %>% 
+  summarise(sum_rumi_id = sum(cerq_1, cerq_9, cerq_19, cerq_29),
+            sum_depr_id = sum(SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+                           SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+                           SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+                           SCL_90_depr_pre_13)) %>% 
+  ungroup()
 ```
 
 
 ```{r}
 
-# mod_clmm_cheerful_gonogo_rumi <-
+distr_gonogo <- 
+  model_dat_desc_go %>% 
+  gather("trait", "value", 2:3) %>% 
+  arrange(id_esm) %>%
+  ggplot(aes(value)) +
+  geom_histogram(binwidth = 1.1, aes(fill = factor(trait, labels = c("Baseline depression\n(SCL-90-R subscale)", "Trait-rumination\n(CERQ subscale)"))), show.legend = FALSE) +
+
+  facet_wrap(~trait, scales = "free", dir = "v") +
+  theme(strip.text.x = element_blank(),
+        legend.spacing.y = unit(1, 'cm')) +
+  guides(fill = guide_legend(byrow = TRUE)) + 
+  xlab("Value") +
+  ylab("Frequency") +
+  labs(fill = "", title = "Go/no-go sample") + 
+  scale_fill_manual(values = c("#D81B60", "#004D40"))
+  
+```
+
+```{r}
+
+distr_nback <- 
+  model_dat_desc_nback %>% 
+  gather("trait", "value", 2:3) %>% 
+  arrange(id_esm) %>%
+  ggplot(aes(value)) +
+  geom_histogram(binwidth = 1.1, aes(fill = factor(trait, labels = c("Baseline depression\n(SCL-90-R subscale)", "Trait-rumination\n(CERQ subscale)")))) +  
+  facet_wrap(~trait, scales = "free", dir = "v") +
+  theme(strip.text.x = element_blank(),
+        legend.spacing.y = unit(1, 'cm')) +
+  guides(fill = guide_legend(byrow = TRUE)) + 
+  xlab("Value") +
+  ylab("") +
+  labs(fill = "", title = "2-back sample") + 
+  scale_fill_manual(values = c("#D81B60", "#004D40"))
+```
+
+```{r}
+(set_model <- 
+   distr_gonogo + distr_nback &
+   plot_layout(guides = 'collect') &
+  theme_light() +
+  theme(
+    strip.text.x = element_blank(),
+  #  legend.position = "bottom",
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)))
+
+```
+
+
+```{r}
+model_dat_desc_go %>% 
+  summarise(
+            min_total_rumi    = min(sum_rumi_id),
+            max_total_rumi    = max(sum_rumi_id),
+            mean_total_rumi   = mean(sum_rumi_id),
+            median_total_rumi = median(sum_rumi_id),
+            sd_total_rumi     = sd(sum_rumi_id))
+```
+
+
+```{r}
+model_dat_desc_go %>% 
+  summarise(
+            
+            min_total_depr    = min(sum_depr_id),
+            max_total_depr    = max(sum_depr_id),
+            mean_total_depr   = mean(sum_depr_id),
+            median_total_depr = median(sum_depr_id),
+            sd_total_depr     = sd(sum_depr_id))
+
+```
+
+
+```{r}
+model_dat_desc_nback %>% 
+  summarise(
+            min_total_rumi    = min(sum_rumi_id),
+            max_total_rumi    = max(sum_rumi_id),
+            mean_total_rumi   = mean(sum_rumi_id),
+            median_total_rumi = median(sum_rumi_id),
+            sd_total_rumi     = sd(sum_rumi_id))
+```
+
+
+```{r}
+model_dat_desc_nback %>% 
+  summarise(
+            
+            min_total_depr    = min(sum_depr_id),
+            max_total_depr    = max(sum_depr_id),
+            mean_total_depr   = mean(sum_depr_id),
+            median_total_depr = median(sum_depr_id),
+            sd_total_depr     = sd(sum_depr_id))
+
+```
+
+# controlling for trait rumination
+
+```{r}
+# mod_clmm_sad_gonogo_rumi_int <-
 #   model_ord_dat %>%
 #   clmm(
-#     cheerful ~ age + gender + beep + day +
-#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
+#     sad ~ age + gender + beep + day +
+#       trait_rumination * gonogo_dprime_centered +
 #       (gonogo_dprime_centered | id_esm ),
 #     data = .
 #   )
 # 
-# mod_clmm_cheerful_nback_rumi <-
+# saveRDS(mod_clmm_sad_gonogo_rumi_int,"saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi_int.rds")
+
+```
+
+```{r}
+
+# mod_clmm_sad_nback_rumi_int <-
 #   model_ord_dat %>%
 #   clmm(
-#     cheerful ~ age + gender + # day + beep +
-#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered | id_esm ),
+#     sad ~ age + gender + beep + day +
+#       trait_rumination * nback_dprime_centered  +
+#       (nback_dprime_centered | id_esm ),
 #     data = .
 #   )
 # 
-# mod_clmm_calm_gonogo_rumi <-
+# saveRDS(mod_clmm_sad_nback_rumi_int,"saved_models/ordinal_models/mod_clmm_sad_nback_rumi_int.rds")
+```
+
+```{r}
+# mod_clmm_angry_gonogo_rumi_int <-
 #   model_ord_dat %>%
 #   clmm(
-#     calm ~ age + gender + beep + day +
-#       event_unpleasantness_centered * gonogo_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered * gonogo_dprime_centered | id_esm ),
+#     angry ~ age + gender + day + # beep + day +
+#       trait_rumination * gonogo_dprime_centered +
+#       (gonogo_dprime_centered | id_esm ),
 #     data = .
 #   )
 # 
-# mod_clmm_calm_nback_rumi <-
+# saveRDS(mod_clmm_angry_gonogo_rumi_int,"saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi_int.rds")
+# 
+# 
+# summary(mod_clmm_angry_gonogo_rumi_int)
+```
+
+```{r}
+# mod_clmm_angry_nback_rumi_int <-
 #   model_ord_dat %>%
 #   clmm(
-#     calm ~ age + gender + beep + day +
-#       event_unpleasantness_centered * nback_dprime_centered + trait_rumination +
-#       (event_unpleasantness_centered + nback_dprime_centered | id_esm ),
+#     angry ~ age + gender + beep + day +
+#       trait_rumination * nback_dprime_centered +
+#       (nback_dprime_centered | id_esm ),
 #     data = .
 #   )
+# 
+# saveRDS(mod_clmm_angry_nback_rumi_int,"saved_models/ordinal_models/mod_clmm_angry_nback_rumi_int.rds")
+```
 
-# saveRDS(mod_clmm_cheerful_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_cheerful_gonogo_rumi.rds")
-# saveRDS(mod_clmm_calm_gonogo_rumi,"saved_models/ordinal_models/mod_clmm_calm_gonogo_rumi.rds")
-# saveRDS(mod_clmm_cheerful_nback_rumi,"saved_models/ordinal_models/mod_clmm_cheerful_nback_rumi.rds")
-# saveRDS(mod_clmm_calm_nback_rumi,"saved_models/ordinal_models/mod_clmm_calm_nback_rumi.rds")
+```{r}
+mod_clmm_sad_gonogo_rumi_int <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo_rumi_int.rds")
+mod_clmm_angry_gonogo_rumi_int <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo_rumi_int.rds")
+mod_clmm_sad_nback_rumi_int <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback_rumi_int.rds")
+mod_clmm_angry_nback_rumi_int <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback_rumi_int.rds")
+```
 
-mod_clmm_cheerful_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_gonogo_rumi.rds")
-mod_clmm_calm_gonogo_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_calm_gonogo_rumi.rds")
-mod_clmm_cheerful_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_cheerful_nback_rumi.rds")
-mod_clmm_calm_nback_rumi <- readRDS("saved_models/ordinal_models/mod_clmm_calm_nback_rumi.rds")
+```{r}
+custom_labels <- c("genderMale" = "Sex [male]", "age" = "Age", "beep" = "Beep",
+                   "day" = "Day", "trait_rumination" = "Trait-rumination",
+                   "gonogo_dprime_centered" = "Go/no-go d'", 
+                   "trait_rumination:gonogo_dprime_centered" = "Trait-rumination * Go/no-go d'",
+                   "nback_dprime_centered" = "2-back d'",
+                   "trait_rumination:nback_dprime_centered" = "Trait-rumination * 2-back d'")
 
-tab_model(mod_clmm_cheerful_gonogo_rumi, mod_clmm_cheerful_nback_rumi,
-          mod_clmm_calm_gonogo_rumi, mod_clmm_calm_nback_rumi)
 
+tab_model(mod_clmm_sad_gonogo_rumi_int,
+          mod_clmm_angry_gonogo_rumi_int,
+          mod_clmm_sad_nback_rumi_int,mod_clmm_angry_nback_rumi_int,
+          pred.labels = custom_labels, auto.label = F,
+          rm.terms = c("1|2", "2|3", "3|4", "4|5", "5|6"))
+
+```
+
+# controlling for baseline depression
+
+```{r}
+# mod_clmm_sad_gonogo_depr <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~ age + gender + beep + day +
+#       trait_depr * gonogo_dprime_centered +
+#       (gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_sad_gonogo_depr,"saved_models/ordinal_models/mod_clmm_sad_gonogo_depr.rds")
+```
+
+
+```{r}
+# mod_clmm_sad_nback_depr <-
+#   model_ord_dat %>%
+#   clmm(
+#     sad ~ age + gender + beep + day +
+#       trait_depr * nback_dprime_centered +
+#       (nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_sad_nback_depr,"saved_models/ordinal_models/mod_clmm_sad_nback_depr.rds")
+```
+
+
+```{r}
+# mod_clmm_angry_gonogo_depr <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~ age + gender + beep + day +
+#       trait_depr * gonogo_dprime_centered + 
+#       (gonogo_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_angry_gonogo_depr,"saved_models/ordinal_models/mod_clmm_angry_gonogo_depr.rds")
+```
+
+
+```{r}
+# mod_clmm_angry_nback_depr <-
+#   model_ord_dat %>%
+#   clmm(
+#     angry ~ age + gender + beep + day +
+#       trait_depr * nback_dprime_centered +
+#       (nback_dprime_centered | id_esm ),
+#     data = .
+#   )
+# 
+# saveRDS(mod_clmm_angry_nback_depr,"saved_models/ordinal_models/mod_clmm_angry_nback_depr.rds")
+```
+
+
+```{r}
+mod_clmm_sad_gonogo_depr <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo_depr.rds")
+mod_clmm_angry_gonogo_depr <- readRDS("saved_models/ordinal_models/mod_clmm_angry_gonogo_depr.rds")
+mod_clmm_sad_nback_depr <- readRDS("saved_models/ordinal_models/mod_clmm_sad_nback_depr.rds")
+mod_clmm_angry_nback_depr <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nback_depr.rds")
+```
+
+
+```{r}
+custom_labels <- c("genderMale" = "Sex [male]", "age" = "Age", "beep" = "Beep",
+                    "day" = "Day", "trait_depr" = "Baseline depression",
+                    "gonogo_dprime_centered" = "Go/no-go d'", 
+                   "trait_depr:gonogo_dprime_centered" = "Baseline depression * Go/no-go d'",
+                    "nback_dprime_centered" = "2-back d'", "trait_depr:nback_dprime_centered" = "Baseline depression * 2-back d'")
+
+
+tab_model(mod_clmm_sad_gonogo_depr, mod_clmm_sad_nback_depr,
+          mod_clmm_angry_gonogo_depr, mod_clmm_angry_nback_depr, pred.labels = custom_labels, auto.label = F,
+          rm.terms = c("1|2", "2|3", "3|4", "4|5", "5|6"))
+
+```
+
+# emotional reactivity - can we estimate it with the needed power?
+
+```{r}
+
+dat_cleaned <- read.csv("processed_data/dat_cleaned.csv")
+
+dat_cleaned_lag <- 
+  dat_cleaned %>% 
+  arrange(id_esm, day, beep) %>% 
+  select(id_esm, age, gender, day, beep, sad, angry, event_pleasantness, nback_dprime, gonogo_dprime) %>% 
+  distinct() %>% 
+  group_by(id_esm, day) %>% 
+  mutate(
+    event_unpleasantness = 8 - event_pleasantness,
+    #first order lag
+    I_lag_sadness         =  dplyr::lag(sad),
+    I_lag_anger           =  dplyr::lag(angry),
+    I_lag_event_un        =  dplyr::lag(event_unpleasantness),
+    I_lag_nback_dprime    =  dplyr::lag(nback_dprime),
+    I_lag_gonogo_dprime   =  dplyr::lag(gonogo_dprime),
+    
+    #second order lag
+    II_lag_sadness =  dplyr::lag(I_lag_sadness),
+    II_lag_anger   =  dplyr::lag(I_lag_anger))
+    
+
+```
+
+# number of observations and participants for the gonogo sample
+
+```{r}
+
+dat_cleaned_lag %>% 
+  filter(!is.na(II_lag_sadness) & !is.na(sad) & !is.na(I_lag_gonogo_dprime) & !is.na(I_lag_event_un)) %>%
+  select(id_esm, day, beep) %>% 
+  ungroup() %>%  
+  summarize(N_ESM_obs = n(),
+            N_participants = n_distinct(id_esm))
+  
+```
+
+# number of observations and participants for the 2-back sample
+
+```{r}
+
+dat_cleaned_lag %>% 
+  filter(!is.na(II_lag_sadness) & !is.na(sad) & !is.na(I_lag_nback_dprime) & !is.na(I_lag_event_un)) %>%
+  select(id_esm, day, beep) %>% 
+  ungroup() %>%  
+  summarize(N_ESM_obs = n(),
+            N_participants = n_distinct(id_esm))
+  
+```
+
+```{r}
+recovery_demonstrate_model_gonogo_angry <- 
+  clmm(angry ~ 
+         age + gender + beep + day + II_lag_anger * I_lag_event_un * I_lag_gonogo_dprime + 
+         (II_lag_anger + I_lag_event_un * I_lag_gonogo_dprime | id_esm), data = dat_cleaned_lag %>% 
+         mutate(across(c(angry, sad), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))))
+
+summary(recovery_demonstrate_model_gonogo_angry)
+```
+
+
+```{r}
+recovery_demonstrate_model_nback_angry <- 
+  clmm(angry ~ 
+         age + gender + beep + day + II_lag_anger * I_lag_event_un * I_lag_nback_dprime + 
+         (II_lag_anger + I_lag_event_un * I_lag_nback_dprime | id_esm), data = dat_cleaned_lag %>% 
+         mutate(across(c(angry, sad), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))))
+
+summary(recovery_demonstrate_model_nback_angry)
+
+```
+
+
+```{r}
+recovery_demonstrate_model_gonogo_sad <- 
+  clmm(sad ~ 
+         age + gender + beep + day + II_lag_sadness * I_lag_event_un * I_lag_gonogo_dprime + 
+         (II_lag_sadness + I_lag_event_un * I_lag_gonogo_dprime | id_esm), data = dat_cleaned_lag %>% 
+         mutate(across(c(angry, sad), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))))
+
+summary(recovery_demonstrate_model_gonogo_sad)
+```
+
+
+```{r}
+recovery_demonstrate_model_nback_sad <- 
+  clmm(sad ~ 
+         age + gender + beep + day + II_lag_sadness * I_lag_event_un * I_lag_nback_dprime + 
+         (II_lag_sadness + I_lag_event_un * I_lag_nback_dprime | id_esm), data = dat_cleaned_lag %>% 
+         mutate(across(c(angry, sad), .fns = ~factor(.x, levels = 1:6, ordered = TRUE))))
+
+summary(recovery_demonstrate_model_nback_sad)
+
+```
+
+
+```{r}
+saveRDS(recovery_demonstrate_model_gonogo_angry,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_angry.rds")
+saveRDS(recovery_demonstrate_model_nback_angry,"saved_models/ordinal_models/recovery_demonstrate_model_nback_angry.rds")
+saveRDS(recovery_demonstrate_model_gonogo_sad,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_sad.rds")
+saveRDS(recovery_demonstrate_model_nback_sad,"saved_models/ordinal_models/recovery_demonstrate_model_nback_sad")
+```
+
+
+```{r}
+tab_model(recovery_demonstrate_model_gonogo_angry,
+          recovery_demonstrate_model_nback_angry,
+          recovery_demonstrate_model_gonogo_sad,
+          recovery_demonstrate_model_nback_sad,
+          show.std = T)
 ```
 
