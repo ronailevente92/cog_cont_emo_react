@@ -512,18 +512,18 @@ summary(recovery_demonstrate_model_nback_sad)
 
 
 ```{r}
-saveRDS(recovery_demonstrate_model_gonogo_angry,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_angry.rds")
-saveRDS(recovery_demonstrate_model_nback_angry,"saved_models/ordinal_models/recovery_demonstrate_model_nback_angry.rds")
-saveRDS(recovery_demonstrate_model_gonogo_sad,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_sad.rds")
-saveRDS(recovery_demonstrate_model_nback_sad,"saved_models/ordinal_models/recovery_demonstrate_model_nback_sad")
+# saveRDS(recovery_demonstrate_model_gonogo_angry,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_angry.rds")
+# saveRDS(recovery_demonstrate_model_nback_angry,"saved_models/ordinal_models/recovery_demonstrate_model_nback_angry.rds")
+# saveRDS(recovery_demonstrate_model_gonogo_sad,"saved_models/ordinal_models/recovery_demonstrate_model_gonogo_sad.rds")
+# saveRDS(recovery_demonstrate_model_nback_sad,"saved_models/ordinal_models/recovery_demonstrate_model_nback_sad")
 ```
 
 
 ```{r}
-tab_model(recovery_demonstrate_model_gonogo_angry,
-          recovery_demonstrate_model_nback_angry,
-          recovery_demonstrate_model_gonogo_sad,
-          recovery_demonstrate_model_nback_sad,
-          show.std = T)
+# tab_model(recovery_demonstrate_model_gonogo_angry,
+#           recovery_demonstrate_model_nback_angry,
+#           recovery_demonstrate_model_gonogo_sad,
+#           recovery_demonstrate_model_nback_sad,
+#           show.std = T)
 ```
 

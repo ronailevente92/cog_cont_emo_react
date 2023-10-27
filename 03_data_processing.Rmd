@@ -119,7 +119,7 @@ dat_cleaned <-
   big_data %>%
   select(id_esm, session_esm, age, gender, edu, city, start_date, date_esm, date_cogtask,
          day, beep, event_pleasantness, worried, sad:active,
-         contains(c("gonogo", "nback", "cerq_")), -contains(c("minutes")),
+         contains(c("gonogo", "nback", "cerq_", "SCL_90_depr_pre_")), -contains(c("minutes")),
          three_day_block, contains(c("diary", "stressor"))) 
 
 ```
@@ -228,6 +228,71 @@ dat_cleaned <-
 
 ```
 
+# CFA for baseline depression
+
+```{r}
+
+dat_cfa_depr <- 
+  dat_cleaned %>% 
+  dplyr::select(id_esm, SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4, SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8, SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12, SCL_90_depr_pre_13) %>%
+  distinct()
+  
+cfa_depr <- 'trait_depr =~ SCL_90_depr_pre_1 + SCL_90_depr_pre_2 + SCL_90_depr_pre_3 + SCL_90_depr_pre_4 + 
+                          SCL_90_depr_pre_5 + SCL_90_depr_pre_6 + SCL_90_depr_pre_7 + SCL_90_depr_pre_8 + 
+                          SCL_90_depr_pre_9 + SCL_90_depr_pre_10 + SCL_90_depr_pre_11 + SCL_90_depr_pre_12 + 
+                          SCL_90_depr_pre_13
+
+	                        SCL_90_depr_pre_2	~~	SCL_90_depr_pre_12 
+                          SCL_90_depr_pre_10	~~	SCL_90_depr_pre_12'
+
+fit_depr <- cfa(model = cfa_depr, data = dat_cfa_depr, std.lv = TRUE, estimator = "ML")
+
+```
+
+```{r}
+fitMeasures(fit_depr, c("chisq", "df", "pvalue", "cfi", "tli",
+                   "rmsea", "srmr"))
+```
+
+```{r}
+summary(fit_depr, fit.measures = TRUE, standardize = TRUE)
+```
+
+```{r}
+modificationindices(fit_depr) %>%
+  select("lhs", "op", "rhs", "mi") %>%
+ # filter(mi > 11) %>%
+  arrange(desc(mi)) %>%
+  head(n = 10) %>%
+  print()
+```
+
+
+```{r}
+# reliability of depr factor (alpha & omega)
+(reliability(fit_depr))
+
+```
+
+```{r}
+# factor loadings
+inspect(fit_depr, what = "std")$lambda
+```
+
+```{r}
+# add baseline depression between-subject factor scores to the main dataset
+scores_cfa_depr <-
+  dat_cfa_depr %>%
+  distinct() %>%
+  cbind(lavPredict(fit_depr, newdata = dat_cfa_depr[1:14])) %>%
+  select(id_esm, trait_depr)
+
+dat_cleaned <-
+  dat_cleaned %>%
+  left_join(scores_cfa_depr, by = c("id_esm"))
+
+```
+
 # CFA for rumination
 
 ```{r}
@@ -267,6 +332,7 @@ modificationindices(fit_rumi) %>%
 (reliability(fit_rumi))
 
 ```
+
 ```{r}
 # factor loadings
 inspect(fit_rumi,what="std")$lambda
@@ -309,14 +375,21 @@ model_dat <-
          event_unpleasantness_centered,
 
          sad, calm, cheerful, angry,
-         
+         cerq_1, cerq_9, cerq_19, cerq_29,
+         SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+         SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+         SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+         SCL_90_depr_pre_13,
+         trait_rumination,
+         trait_depr,
 
-         contains(c("_mean_grand_centered")), trait_rumination,
+         contains(c("_mean_grand_centered"))
 
          ) %>%
   distinct()
 
 ```
+
 
 ```{r}
 
@@ -335,16 +408,26 @@ model_dat %>%
 model_dat %>%
   filter_at(vars(sad, angry, cheerful, calm, 
                  event_unpleasantness_centered,
-                 nback_dprime_centered, trait_rumination), all_vars(!is.na(.))) %>%
+                 nback_dprime_centered, 
+                 cerq_1, cerq_9, cerq_19, cerq_29,
+                 SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+                 SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+                 SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+                 SCL_90_depr_pre_13,
+                 trait_rumination, trait_depr), all_vars(!is.na(.))) %>%
   distinct() %>% 
   write.csv("processed_data/model_dat_filtered_nback.csv", row.names = F)
 
 model_dat %>%
   filter_at(vars(sad, angry, cheerful, calm, 
                  event_unpleasantness_centered,
-                 gonogo_dprime_centered, trait_rumination), all_vars(!is.na(.))) %>%
-  distinct() %>% 
+                 gonogo_dprime_centered, 
+                 cerq_1, cerq_9, cerq_19, cerq_29,
+                 SCL_90_depr_pre_1, SCL_90_depr_pre_2, SCL_90_depr_pre_3, SCL_90_depr_pre_4,
+                 SCL_90_depr_pre_5, SCL_90_depr_pre_6, SCL_90_depr_pre_7, SCL_90_depr_pre_8,
+                 SCL_90_depr_pre_9, SCL_90_depr_pre_10, SCL_90_depr_pre_11, SCL_90_depr_pre_12,
+                 SCL_90_depr_pre_13,
+                 trait_rumination, trait_depr), all_vars(!is.na(.))) %>%
   write.csv("processed_data/model_dat_filtered_gonogo.csv", row.names = F)
 
 ```
-

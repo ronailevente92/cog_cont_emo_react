@@ -150,7 +150,7 @@ model_A <-
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
                event_unpleasantness_centered = "Event-unpleasantness",
-               gonogo_dprime_centered = "Go/No-Go",
+               gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
   labs(x = "", y = "", title = "Negative affect ~ Response inhibition", color = "Predicting:") +
@@ -176,7 +176,7 @@ model_A <-
 #     labels = c(nback_dprime_centered = "2-back d'",
 #                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
 #                event_unpleasantness_centered = "Event-unpleasantness",
-#                gonogo_dprime_centered = "Go/No-Go d'",
+#                gonogo_dprime_centered = "Go/no-go d'",
 #                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
 #   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
 #   labs(x = "", y = "", title = "Negative affect ~ Response inhibition", shape = "Predicting:") +
@@ -202,7 +202,7 @@ model_B <-
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
                event_unpleasantness_centered = "Event-unpleasantness",
-               gonogo_dprime_centered = "Go/No-Go",
+               gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) +
   labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", color = "Predicting:") +
@@ -226,7 +226,7 @@ model_B <-
 #     labels = c(nback_dprime_centered = "2-back d'",
 #                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
 #                event_unpleasantness_centered = "Event-unpleasantness",
-#                gonogo_dprime_centered = "Go/No-Go d'",
+#                gonogo_dprime_centered = "Go/no-go d'",
 #                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
 #   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
 #   labs(x = "Odds ratios", y = "", title = "Negative affect ~ Working memory updating", shape = "Predicting:") +
@@ -252,7 +252,7 @@ model_C <-
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
                event_unpleasantness_centered = "Event-unpleasantness",
-               gonogo_dprime_centered = "Go/No-Go",
+               gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
   labs(x = "", y = "", title = "Positive affect ~ Response inhibition", color = "Predicting:") +
@@ -277,7 +277,7 @@ model_C <-
 #     labels = c(nback_dprime_centered = "2-back d'",
 #                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
 #                event_unpleasantness_centered = "Event-unpleasantness",
-#                gonogo_dprime_centered = "Go/No-Go d'",
+#                gonogo_dprime_centered = "Go/no-go d'",
 #                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
 #    scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
 #    labs(x = "", y = "", title = "Positive affect ~ Response inhibition", shape = "Predicting:") +
@@ -302,7 +302,7 @@ model_D <-
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
                event_unpleasantness_centered = "Event-unpleasantness",
-               gonogo_dprime_centered = "Go/No-Go",
+               gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
   labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", color = "Predicting:") +
@@ -326,7 +326,7 @@ model_D <-
 #     labels = c(nback_dprime_centered = "2-back d'",
 #                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
 #                event_unpleasantness_centered = "Event-unpleasantness",
-#                gonogo_dprime_centered = "Go/No-Go d'",
+#                gonogo_dprime_centered = "Go/no-go d'",
 #                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
 #   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
 #   labs(x = "Odds ratios", y = "", title = "Positive affect ~ Working memory updating", shape = "Predicting:") +
@@ -334,6 +334,7 @@ model_D <-
 ```
 
 ```{r, fig.height=6, fig.width=10, warning = F}
+
 
 (set_model <- 
    model_A + model_C + model_B + model_D &

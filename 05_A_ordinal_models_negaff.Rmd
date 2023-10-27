@@ -104,8 +104,6 @@ If the probabilites are close that suggests that the ordinal model is doing okay
 # saveRDS(mod_clmm_sad_gonogo,"saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
 mod_clmm_sad_gonogo <- readRDS("saved_models/ordinal_models/mod_clmm_sad_gonogo.rds")
 
-tab_model(mod_clmm_sad_gonogo)
-
 ```
 
 #### Assumption check
@@ -394,11 +392,17 @@ mod_clmm_angry_nback <- readRDS("saved_models/ordinal_models/mod_clmm_angry_nbac
 
 ```{r}
 
-# gender == sex
+custom_labels <- c("genderMale" = "Sex [male]", "age" = "Age", "beep" = "Beep",
+                   "day" = "Day", "event_unpleasantness_centered" = "Event-unpleasantness",
+                   "gonogo_dprime_centered" = "Go/no-go d'", 
+                   "event_unpleasantness_centered:gonogo_dprime_centered" = "Event-unpleasantness * Go/no-go d'",
+                   "nback_dprime_centered" = "2-back d'",
+                   "event_unpleasantness_centered:nback_dprime_centered" = "Event-unpleasantness * 2-back d'")
 
-tab_model(
-  mod_clmm_sad_gonogo, mod_clmm_sad_nback,
-  mod_clmm_angry_gonogo, mod_clmm_angry_nback
-   #, file = "tables/ordinal_models_negaff_control.html"
-)
+
+tab_model(mod_clmm_sad_gonogo, mod_clmm_sad_nback,
+          mod_clmm_angry_gonogo, mod_clmm_angry_nback,
+          pred.labels = custom_labels, auto.label = F,
+          rm.terms = c("1|2", "2|3", "3|4", "4|5", "5|6"))
+
 ```
