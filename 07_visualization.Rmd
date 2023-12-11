@@ -347,7 +347,7 @@ model_D <-
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 14)))
 
-# ggsave("main_plot.jpeg", device = "jpeg", width = 40, height = 20, units = "cm")
+ggsave("main_plot_pdg.pdf", device = "pdf", width = 40, height = 20, units = "cm")
 # ggsave("main_plot_black.jpeg", device = "jpeg", width = 40, height = 20, units = "cm")
 
 ```
@@ -398,13 +398,13 @@ ggplot(data = df, aes(x1, y1, color = react)) +
         axis.ticks.x=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        axis.title = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20)) +
+        axis.title = element_text(size = 18),
+        legend.title = element_text(size = 18),
+        legend.text = element_text(size = 18)) +
   labs(x = "Event-unpleasantness", y = "Negative affect", title = "", color = "Emotional\nreactivity:") +
  scale_color_manual(labels = c("Low", "High"), values = c("#1B9E7780", "#D95F0280"))  
 
-# ggsave("emo_react.jpeg", device = "jpeg", width = 30, height = 20, units = "cm", )
+ggsave("emo_react.jpg", device = "jpg", width = 30, height = 20, units = "cm", )
 
 ```
 
