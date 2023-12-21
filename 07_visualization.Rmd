@@ -149,7 +149,7 @@ model_A <-
   scale_y_discrete(
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Event-unpleasantness",
+               event_unpleasantness_centered = "Event-\nunpleasantness",
                gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0, 4), breaks = seq(from = 0, to = 4, by = 0.5)) +
@@ -201,7 +201,7 @@ model_B <-
   scale_y_discrete(
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Event-unpleasantness",
+               event_unpleasantness_centered = "Event-\nunpleasantness",
                gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0,4), breaks = seq(from = 0, to = 4, by = 0.5)) +
@@ -251,7 +251,7 @@ model_C <-
   scale_y_discrete(
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Event-unpleasantness",
+               event_unpleasantness_centered = "Event-\nunpleasantness",
                gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
@@ -301,7 +301,7 @@ model_D <-
   scale_y_discrete(
     labels = c(nback_dprime_centered = "2-back",
                event_unpleasantness_centered_nback_dprime_centered = "Interaction",
-               event_unpleasantness_centered = "Event-unpleasantness",
+               event_unpleasantness_centered = "Event-\nunpleasantness",
                gonogo_dprime_centered = "Go/no-go",
                event_unpleasantness_centered_gonogo_dprime_centered = "Interaction")) +
   scale_x_continuous(limits = c(0.5, 1.5), breaks = seq(from = 0.5, to = 1.5, by = 0.25)) +
@@ -339,15 +339,16 @@ model_D <-
 (set_model <- 
    model_A + model_C + model_B + model_D &
    plot_layout(guides = 'collect') &
+   plot_annotation(tag_levels = 'A') &
   theme_light() +
   theme(
     legend.position = "bottom",
-    axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14),
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 14)))
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)))
 
-ggsave("main_plot_pdg.pdf", device = "pdf", width = 40, height = 20, units = "cm")
+# ggsave("main_plot_pdg.pdf", device = "pdf", width = 30, height = 20, units = "cm")
 # ggsave("main_plot_black.jpeg", device = "jpeg", width = 40, height = 20, units = "cm")
 
 ```
